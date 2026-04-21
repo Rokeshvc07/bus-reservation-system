@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}SwiftSeat — Book Bus Tickets{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+
+  {% block nav %}
+  {% if session.get('user_id') and session.get('role') != 'admin' %}
+  <nav class="nav" id="mainNav">
+    <div class="nav-inner">
+      <a href="{{ url_for('user_dashboard') }}" class="nav-logo">
+        <div class="nav-logo-mark">🚌</div>
+        <span class="nav-logo-name">SwiftSeat</span>
+      </a>
+
+      <div class="nav-links">
+        <a href="{{ url_for('user_dashboard') }}" class="nav-link {% if request.endpoint == 'user_dashboard' %}active{% endif %}">
+          <i class="fas fa-search nav-link-icon"></i> Book Travel
+        </a>
+        <a href="{{ url_for('my_bookings') }}" class="nav-link {% if request.endpoint == 'my_bookings' %}active{% endif %}">
+          <i class="fas fa-ticket-alt nav-link-icon"></i> My Bookings
+        </a>
+        <a href="{{ url_for('profile') }}" class="nav-link {% if request.endpoint == 'profile' %}active{% endif %}">
+          <i class="fas fa-user nav-link-icon"></i> Profile
+        </a>
+        <a href="{{ url_for('cancel_ticket') }}" class="nav-link {% if request.endpoint == 'cancel_ticket' %}active{% endif %}">
+          <i class="fas fa-times-circle nav-link-icon"></i> Cancel
+        </a>
+        <a href="{{ url_for('reschedule_ticket') }}" class="nav-link {% if request.endpoint == 'reschedule_ticket' %}active{% endif %}">
+          <i class="fas fa-calendar-alt nav-link-icon"></i> Reschedule
+        </a>
+      </div>
+
+      <div class="nav-right">
+        <div class="nav-user">
+          <div class="nav-avatar">{{ session['username'][0].upper() }}</div>
+          <span class="nav-username">{{ session['username'] }}</span>
+        </div>
+        <a href="{{ url_for('logout') }}" class="nav-logout">
+          <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+      </div>
+    </div>
+  </nav>
+  {% endif %}
+  {% endblock %}
+
+  {% block content %}{% endblock %}
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    // ── TOAST SYSTEM ──
+    function showToast(message, type = 'success', duration = 3500) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+      toast.innerHTML = `<i class="fas ${icon} toast-icon"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add('removing');
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
+    }
+
+    // ── NAV SCROLL COMPACT ──
+    const nav = document.getElementById('mainNav');
+    if (nav) {
+      let lastY = 0;
+      window.addEventListener('scroll', () => {
+        const y = window.scrollY;
+        if (y > 20) nav.classList.add('scrolled');
+        else nav.classList.remove('scrolled');
+        lastY = y;
+      }, { passive: true });
+    }
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

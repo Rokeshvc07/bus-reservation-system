@@ -1,0 +1,525 @@
+{% extends "base.html" %}
+{% block title %}Reschedule — SwiftSeat{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="page-header">
+    <h1 class="page-title">Reschedule Ticket</h1>
+    <p class="page-subtitle">Change your travel date with zero hassle</p>
+  </div>
+
+  <div style="max-width:640px;">
+
+    <div style="background:var(--accent-pale);border:1px solid var(--accent-pale-2);
+                border-radius:var(--radius-md);padding:16px 20px;margin-bottom:28px;
+                display:flex;gap:12px;align-items:flex-start;">
+      <i class="fas fa-calendar-check" style="color:var(--accent);margin-top:2px;flex-shrink:0;"></i>
+      <div>
+        <div style="font-weight:600;font-size:14px;color:var(--text-primary);margin-bottom:4px;">Free Rescheduling</div>
+        <div style="font-size:13px;color:var(--text-secondary);">Change your date up to 2 hours before departure at no extra charge. Subject to seat availability.</div>
+      </div>
+    </div>
+
+    {% if my_bookings %}
+    {% for booking in my_bookings %}
+    <div class="booking-card" id="rsd-card-{{ booking['id'] }}">
+
+      <div class="booking-card-header">
+        <span class="booking-id">TICKET #{{ booking['id'] }}</span>
+        <span class="booking-status confirmed" id="rsd-badge-{{ booking['id'] }}">
+          <i class="fas fa-check-circle"></i> Confirmed
+        </span>
+      </div>
+
+      <div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:10px;">
+        {{ booking['name'] }}
+      </div>
+
+      <div style="display:flex;gap:20px;font-size:13px;color:var(--text-secondary);
+                  margin-bottom:20px;flex-wrap:wrap;">
+        <span>
+          <i class="fas fa-calendar-alt" style="color:var(--accent);margin-right:5px;"></i>
+          <span id="rsd-cur-date-{{ booking['id'] }}">{{ booking['date'] }}</span>
+        </span>
+        <span>
+          <i class="fas fa-chair" style="color:var(--accent);margin-right:5px;"></i>
+          Seats {{ booking['seat_numbers'] }}
+        </span>
+      </div>
+
+      <!-- Date picker trigger button -->
+      <div style="margin-bottom:16px;" id="rsd-picker-wrap-{{ booking['id'] }}">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;
+                    letter-spacing:.06em;color:var(--text-muted);margin-bottom:8px;">
+          Select New Travel Date
+        </div>
+
+        <button type="button"
+                id="rsd-trigger-{{ booking['id'] }}"
+                onclick="openCal({{ booking['id'] }}, this)"
+                style="display:flex;align-items:center;gap:12px;padding:12px 16px;
+                       background:var(--surface-2);border:1.5px solid var(--border-strong);
+                       border-radius:var(--radius-md);cursor:pointer;width:100%;
+                       max-width:300px;font-family:'DM Sans',sans-serif;
+                       transition:border-color 0.2s ease,box-shadow 0.2s ease;">
+          <div style="width:36px;height:36px;border-radius:var(--radius-sm);
+                      background:var(--accent-pale);display:flex;align-items:center;
+                      justify-content:center;font-size:16px;color:var(--accent);flex-shrink:0;">
+            <i class="fas fa-calendar-alt"></i>
+          </div>
+          <div style="text-align:left;">
+            <div style="font-size:11px;color:var(--text-muted);font-weight:600;
+                        text-transform:uppercase;letter-spacing:.04em;">New Date</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text-primary);"
+                 id="rsd-label-{{ booking['id'] }}">Tap to choose</div>
+          </div>
+          <i class="fas fa-chevron-down"
+             style="margin-left:auto;font-size:11px;color:var(--text-muted);
+                    transition:transform 0.25s ease;"
+             id="rsd-chev-{{ booking['id'] }}"></i>
+        </button>
+
+        <input type="hidden" id="rsd-val-{{ booking['id'] }}" value="">
+      </div>
+
+      <!-- Confirm button (disabled until date picked) -->
+      <button type="button"
+              class="btn-ghost"
+              id="rsd-confirm-{{ booking['id'] }}"
+              onclick="doReschedule({{ booking['id'] }})"
+              style="opacity:0.38;pointer-events:none;">
+        <i class="fas fa-calendar-check"></i> Confirm Reschedule
+      </button>
+
+      <!-- Status timeline (revealed after success) -->
+      <div id="rsd-timeline-{{ booking['id'] }}"
+           style="display:none;margin-top:20px;padding-top:18px;border-top:1px solid var(--border);">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;
+                    letter-spacing:.06em;color:var(--text-muted);margin-bottom:14px;">
+          Reschedule Status
+        </div>
+
+        <!-- Step 1 -->
+        <div style="display:flex;gap:14px;align-items:flex-start;">
+          <div style="display:flex;flex-direction:column;align-items:center;">
+            <div style="width:26px;height:26px;border-radius:50%;background:var(--accent);
+                        display:flex;align-items:center;justify-content:center;
+                        color:white;font-size:11px;flex-shrink:0;">
+              <i class="fas fa-check"></i>
+            </div>
+            <div style="width:2px;background:var(--accent);min-height:28px;margin-top:3px;"></div>
+          </div>
+          <div style="padding-bottom:22px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text-primary);">Request received</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Reschedule request confirmed</div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div style="display:flex;gap:14px;align-items:flex-start;">
+          <div style="display:flex;flex-direction:column;align-items:center;">
+            <div style="width:26px;height:26px;border-radius:50%;background:var(--accent);
+                        display:flex;align-items:center;justify-content:center;
+                        color:white;font-size:11px;flex-shrink:0;">
+              <i class="fas fa-check"></i>
+            </div>
+            <div style="width:2px;background:var(--border-strong);min-height:28px;margin-top:3px;"></div>
+          </div>
+          <div style="padding-bottom:22px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text-primary);">
+              Rescheduled to:
+              <span id="rsd-new-label-{{ booking['id'] }}" style="color:var(--accent);"></span>
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">New travel date confirmed</div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div style="display:flex;gap:14px;align-items:flex-start;">
+          <div style="width:26px;height:26px;border-radius:50%;
+                      background:var(--surface-3);border:2px solid var(--border-strong);
+                      display:flex;align-items:center;justify-content:center;
+                      color:var(--text-muted);font-size:11px;flex-shrink:0;">
+            <i class="fas fa-ticket-alt"></i>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-muted);">Seat reserved on new date</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Pending confirmation</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /booking-card -->
+    {% endfor %}
+
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📅</div>
+      <div class="empty-title">No bookings to reschedule</div>
+      <div class="empty-text">Book a trip first to use the reschedule feature.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     FLOATING CALENDAR  — position:fixed, z-index:9999
+     Lives at the <body> level — escapes ALL stacking
+     contexts, overflow:hidden, and z-index hierarchies.
+     BUG FIX: previous version used position:absolute
+     inside a stacking-context parent + wrong element IDs.
+══════════════════════════════════════════════════════ -->
+<div id="floatingCal"
+     style="position:fixed;z-index:9999;display:none;
+            background:var(--surface);border:1px solid var(--border);
+            border-radius:var(--radius-lg);padding:20px;width:308px;
+            box-shadow:0 20px 60px rgba(0,0,0,0.15),0 4px 16px rgba(0,0,0,0.08);
+            animation:dropdownOpen 0.18s ease both;">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <button type="button" id="calPrev"
+        style="width:32px;height:32px;border-radius:50%;
+               border:1.5px solid var(--border-strong);background:transparent;
+               cursor:pointer;display:flex;align-items:center;justify-content:center;
+               font-size:12px;color:var(--text-secondary);transition:all 0.18s ease;">
+      <i class="fas fa-chevron-left"></i>
+    </button>
+    <span id="calMonthLabel"
+          style="font-size:14px;font-weight:700;color:var(--text-primary);"></span>
+    <button type="button" id="calNext"
+        style="width:32px;height:32px;border-radius:50%;
+               border:1.5px solid var(--border-strong);background:transparent;
+               cursor:pointer;display:flex;align-items:center;justify-content:center;
+               font-size:12px;color:var(--text-secondary);transition:all 0.18s ease;">
+      <i class="fas fa-chevron-right"></i>
+    </button>
+  </div>
+
+  <div id="calGrid"
+       style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;"></div>
+
+  <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);
+              display:flex;justify-content:flex-end;">
+    <button type="button" onclick="closeCal()"
+        style="font-size:12px;color:var(--text-muted);background:none;border:none;
+               cursor:pointer;padding:4px 8px;border-radius:var(--radius-sm);
+               transition:all 0.15s ease;"
+        onmouseenter="this.style.background='var(--surface-2)'"
+        onmouseleave="this.style.background='none'">
+      Close
+    </button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ══════════════════════════════════════════════════════════
+// SINGLE FLOATING CALENDAR — shared across all booking cards
+// BUG ROOT CAUSES FIXED:
+//   1. ID mismatch: JS used 'cal-'+id, HTML had 'rsd-cal-'+id → null crash
+//   2. Comparison bug: c.id !== 'cal-'+id always true → immediate close
+//   3. Architecture: position:absolute trapped in stacking context
+//   NEW: position:fixed at body level, positioned via getBoundingClientRect()
+// ══════════════════════════════════════════════════════════
+
+const MONTHS_LONG = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December'
+];
+const DAY_HEADERS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+let _activeCal = null;  // current booking id whose calendar is open
+let _calYear   = new Date().getFullYear();
+let _calMonth  = new Date().getMonth();
+
+// ── Open calendar positioned under the trigger button ──
+function openCal(id, triggerBtn) {
+  // If same card clicked again → close
+  if (_activeCal === id) { closeCal(); return; }
+
+  _activeCal = id;
+
+  // Restore any previously picked date as the starting month
+  const existingVal = document.getElementById('rsd-val-' + id).value;
+  if (existingVal) {
+    const parts = existingVal.split('-');
+    _calYear  = parseInt(parts[0]);
+    _calMonth = parseInt(parts[1]) - 1;
+  } else {
+    const now = new Date();
+    _calYear  = now.getFullYear();
+    _calMonth = now.getMonth();
+  }
+
+  renderCalGrid();
+
+  // Position: use getBoundingClientRect for viewport coords → use with position:fixed
+  const rect = triggerBtn.getBoundingClientRect();
+  const cal  = document.getElementById('floatingCal');
+
+  cal.style.display = 'block';
+
+  // Ensure it doesn't overflow right edge of viewport
+  const calW = 308;
+  let left = rect.left;
+  if (left + calW > window.innerWidth - 12) {
+    left = window.innerWidth - calW - 12;
+  }
+
+  // Ensure it doesn't overflow bottom edge
+  const calH = 340;
+  let top = rect.bottom + 6;
+  if (top + calH > window.innerHeight - 12) {
+    top = rect.top - calH - 6;  // flip above button
+  }
+
+  cal.style.top  = top  + 'px';
+  cal.style.left = left + 'px';
+
+  // Rotate chevron
+  const chev = document.getElementById('rsd-chev-' + id);
+  if (chev) chev.style.transform = 'rotate(180deg)';
+
+  // Highlight trigger button
+  if (triggerBtn) {
+    triggerBtn.style.borderColor = 'var(--accent)';
+    triggerBtn.style.boxShadow  = '0 0 0 3px rgba(45,80,22,0.08)';
+  }
+}
+
+// ── Close the floating calendar ──
+function closeCal() {
+  const cal = document.getElementById('floatingCal');
+  cal.style.display = 'none';
+
+  if (_activeCal !== null) {
+    const chev = document.getElementById('rsd-chev-' + _activeCal);
+    if (chev) chev.style.transform = '';
+
+    const btn = document.getElementById('rsd-trigger-' + _activeCal);
+    if (btn) {
+      btn.style.borderColor = 'var(--border-strong)';
+      btn.style.boxShadow   = '';
+    }
+  }
+  _activeCal = null;
+}
+
+// ── Navigate months ──
+document.getElementById('calPrev').addEventListener('click', function(e) {
+  e.stopPropagation();
+  _calMonth--;
+  if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+  renderCalGrid();
+});
+
+document.getElementById('calNext').addEventListener('click', function(e) {
+  e.stopPropagation();
+  _calMonth++;
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  renderCalGrid();
+});
+
+// ── Render the month grid ──
+function renderCalGrid() {
+  document.getElementById('calMonthLabel').textContent =
+    MONTHS_LONG[_calMonth] + ' ' + _calYear;
+
+  const grid      = document.getElementById('calGrid');
+  const todayStr  = new Date().toISOString().split('T')[0];
+  const pickedVal = _activeCal ? document.getElementById('rsd-val-' + _activeCal).value : '';
+  const firstDay  = new Date(_calYear, _calMonth, 1).getDay();
+  const daysInMon = new Date(_calYear, _calMonth + 1, 0).getDate();
+
+  grid.innerHTML = '';
+
+  // Day-of-week headers
+  DAY_HEADERS.forEach(d => {
+    const h = document.createElement('div');
+    h.textContent = d;
+    h.style.cssText = 'text-align:center;font-size:11px;font-weight:700;' +
+                      'color:var(--text-muted);padding:3px 0 6px;';
+    grid.appendChild(h);
+  });
+
+  // Empty cells before first day
+  for (let i = 0; i < firstDay; i++) {
+    grid.appendChild(Object.assign(document.createElement('div'), {
+      style: 'height:36px;'
+    }));
+  }
+
+  // Day cells
+  for (let d = 1; d <= daysInMon; d++) {
+    const dateStr = _calYear + '-' +
+                    String(_calMonth + 1).padStart(2, '0') + '-' +
+                    String(d).padStart(2, '0');
+    const isPast  = dateStr < todayStr;
+    const isToday = dateStr === todayStr;
+    const isSel   = dateStr === pickedVal;
+
+    const cell = document.createElement('div');
+    cell.textContent = d;
+
+    let style = 'height:36px;width:36px;display:flex;align-items:center;' +
+                'justify-content:center;border-radius:50%;font-size:13px;' +
+                'font-weight:500;margin:0 auto;box-sizing:border-box;' +
+                'transition:background 0.15s ease,color 0.15s ease,transform 0.12s ease;';
+
+    if (isPast) {
+      style += 'color:var(--text-muted);opacity:0.35;cursor:not-allowed;';
+    } else if (isSel) {
+      style += 'background:var(--accent);color:white;cursor:pointer;' +
+               'box-shadow:0 3px 10px rgba(45,80,22,0.35);';
+    } else if (isToday) {
+      style += 'font-weight:800;color:var(--accent);cursor:pointer;' +
+               'border:2px solid var(--accent-pale-2);';
+    } else {
+      style += 'cursor:pointer;';
+    }
+
+    cell.style.cssText = style;
+
+    if (!isPast) {
+      cell.addEventListener('mouseenter', function() {
+        if (!this._picked) {
+          this.style.background = 'var(--surface-2)';
+          this.style.transform  = 'scale(1.08)';
+        }
+      });
+      cell.addEventListener('mouseleave', function() {
+        if (!this._picked) {
+          this.style.background = '';
+          this.style.transform  = '';
+        }
+      });
+      cell.addEventListener('click', function(e) {
+        e.stopPropagation();
+        pickCalDate(dateStr);
+      });
+    }
+
+    grid.appendChild(cell);
+  }
+}
+
+// ── User picks a date ──
+function pickCalDate(dateStr) {
+  if (!_activeCal) return;
+
+  const id = _activeCal;
+  document.getElementById('rsd-val-' + id).value = dateStr;
+
+  const parts  = dateStr.split('-');
+  const pretty = parseInt(parts[2]) + ' ' +
+                 MONTHS_LONG[parseInt(parts[1]) - 1] + ' ' +
+                 parts[0];
+
+  // Update trigger button label
+  const label = document.getElementById('rsd-label-' + id);
+  if (label) {
+    label.textContent = pretty;
+    label.style.color = 'var(--accent)';
+  }
+
+  // Enable confirm button with a spring pop
+  const confirmBtn = document.getElementById('rsd-confirm-' + id);
+  if (confirmBtn) {
+    confirmBtn.style.opacity       = '1';
+    confirmBtn.style.pointerEvents = 'auto';
+    confirmBtn.style.transform     = 'scale(1.02)';
+    setTimeout(() => { confirmBtn.style.transform = 'scale(1)'; }, 200);
+  }
+
+  closeCal();
+}
+
+// ── Close when clicking outside ──
+document.addEventListener('click', function(e) {
+  if (_activeCal === null) return;
+  const cal    = document.getElementById('floatingCal');
+  const isInCal = cal.contains(e.target);
+  const isTrig  = e.target.closest('[id^="rsd-trigger-"]');
+  if (!isInCal && !isTrig) closeCal();
+});
+
+// ── Close on scroll (re-position would be complex; simpler to close) ──
+window.addEventListener('scroll', function() {
+  if (_activeCal !== null) closeCal();
+}, { passive: true });
+
+// ── Keyboard close ──
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && _activeCal !== null) closeCal();
+});
+
+// ══════════════════════════════════════════════
+// RESCHEDULE API CALL
+// ══════════════════════════════════════════════
+function doReschedule(id) {
+  const newDate = document.getElementById('rsd-val-' + id).value;
+  if (!newDate) { showToast('Please select a new date.', 'error'); return; }
+
+  const btn = document.getElementById('rsd-confirm-' + id);
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing\u2026';
+  btn.disabled  = true;
+  btn.style.opacity = '0.7';
+
+  fetch('/reschedule_booking/' + id, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ new_date: newDate })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.status === 'success') {
+      const parts  = newDate.split('-');
+      const pretty = parseInt(parts[2]) + ' ' +
+                     MONTHS_LONG[parseInt(parts[1]) - 1] + ' ' + parts[0];
+
+      // Update displayed date
+      const curDate = document.getElementById('rsd-cur-date-' + id);
+      if (curDate) curDate.textContent = newDate;
+
+      // Update timeline label
+      const nl = document.getElementById('rsd-new-label-' + id);
+      if (nl) nl.textContent = pretty;
+
+      // Update status badge
+      const badge = document.getElementById('rsd-badge-' + id);
+      if (badge) {
+        badge.style.background = 'var(--accent-pale)';
+        badge.style.color      = 'var(--accent)';
+        badge.style.border     = '1px solid var(--accent-pale-2)';
+        badge.innerHTML = '<i class="fas fa-calendar-check"></i> Rescheduled';
+      }
+
+      // Hide picker, show timeline with slide-in
+      const wrap = document.getElementById('rsd-picker-wrap-' + id);
+      if (wrap) wrap.style.display = 'none';
+      btn.style.display = 'none';
+
+      const timeline = document.getElementById('rsd-timeline-' + id);
+      if (timeline) {
+        timeline.style.display   = 'block';
+        timeline.style.animation = 'fadeSlideUp 0.45s ease';
+      }
+
+      showToast('\uD83C\uDF89 Rescheduled to ' + pretty + '!', 'success', 5000);
+    } else {
+      showToast(data.message || 'Reschedule failed. Please try again.', 'error');
+      btn.innerHTML     = '<i class="fas fa-calendar-check"></i> Confirm Reschedule';
+      btn.disabled      = false;
+      btn.style.opacity = '1';
+    }
+  })
+  .catch(() => {
+    showToast('Network error. Please try again.', 'error');
+    btn.innerHTML     = '<i class="fas fa-calendar-check"></i> Confirm Reschedule';
+    btn.disabled      = false;
+    btn.style.opacity = '1';
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+{% block title %}My Bookings — SwiftSeat{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="page-header">
+    <h1 class="page-title">My Bookings</h1>
+    <p class="page-subtitle">All your travel history in one place</p>
+  </div>
+
+  {% if my_bookings %}
+  {% for booking in my_bookings %}
+  {% set req = request_map.get(booking['id']) if request_map is defined else none %}
+  <div class="booking-card"
+       style="animation-delay:{{ loop.index0 * 80 }}ms;"
+       data-booking-id="{{ booking['id'] }}"
+       data-booking-date="{{ booking['date'] or '' }}"
+       data-booking-dep="{{ booking['dep_time'] if booking['dep_time'] else '08:00' }}"
+       data-booking-arr="{{ booking['arr_time'] if booking['arr_time'] else '14:00' }}"
+       data-booking-name="{{ booking['name'] }}"
+       data-booking-seats="{{ booking['seat_numbers'] }}"
+       data-booking-price="{{ booking['total_price'] }}">
+
+    <!-- Header row: ticket ID + trip badge + request badge -->
+    <div class="booking-card-header" style="flex-wrap:wrap;gap:8px;">
+      <span class="booking-id">TICKET #{{ booking['id'] }}</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span id="status-badge-{{ booking['id'] }}" class="trip-status-badge"></span>
+
+        {% if req %}
+          {% if req['status'] == 'pending' %}
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+                         background:#FEF9EC;color:#D4A017;
+                         border:1px solid rgba(212,160,23,0.3);
+                         border-radius:var(--radius-full);font-size:11px;font-weight:600;">
+              <i class="fas fa-clock"></i>
+              {{ 'Cancel' if req['request_type'] == 'cancel' else 'Reschedule' }} Pending
+            </span>
+          {% elif req['status'] == 'approved' %}
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+                         background:var(--success-pale);color:var(--success);
+                         border:1px solid rgba(39,174,96,0.25);
+                         border-radius:var(--radius-full);font-size:11px;font-weight:600;">
+              <i class="fas fa-check-circle"></i>
+              {{ 'Cancellation' if req['request_type'] == 'cancel' else 'Reschedule' }} Approved
+            </span>
+          {% elif req['status'] == 'rejected' %}
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+                         background:var(--danger-pale);color:var(--danger);
+                         border:1px solid rgba(192,57,43,0.2);
+                         border-radius:var(--radius-full);font-size:11px;font-weight:600;">
+              <i class="fas fa-times-circle"></i>
+              {{ 'Cancel' if req['request_type'] == 'cancel' else 'Reschedule' }} Rejected
+            </span>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Route From → arrow → To -->
+    <div class="booking-card-route">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);font-weight:600;
+                    text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">From</div>
+        <div class="booking-city">
+          {% if booking['route'] and ' - ' in booking['route'] %}
+            {{ booking['route'].split(' - ')[0] }}
+          {% else %}
+            {{ booking['name'] }}
+          {% endif %}
+        </div>
+      </div>
+      <div class="booking-arrow" id="route-arrow-{{ booking['id'] }}"></div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);font-weight:600;
+                    text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">To</div>
+        <div class="booking-city">
+          {% if booking['route'] and ' - ' in booking['route'] %}
+            {{ booking['route'].split(' - ')[1] }}
+          {% else %}
+            &mdash;
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Trip progress bar (width set by JS after comparing clock time) -->
+    <div style="margin:16px 0 20px;" id="progress-area-{{ booking['id'] }}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;
+                     letter-spacing:.06em;color:var(--text-muted);"
+              id="progress-label-{{ booking['id'] }}">Trip Progress</span>
+        <span style="font-size:12px;font-weight:600;"
+              id="progress-pct-{{ booking['id'] }}"></span>
+      </div>
+      <div style="height:6px;background:var(--surface-3);
+                  border-radius:var(--radius-full);overflow:hidden;">
+        <div id="progress-bar-{{ booking['id'] }}"
+             style="height:100%;width:0%;border-radius:var(--radius-full);
+                    background:var(--accent);
+                    transition:width 1.4s cubic-bezier(0.4,0,0.2,1);"></div>
+      </div>
+    </div>
+
+    <!-- Details grid -->
+    <div class="booking-card-details">
+      <div>
+        <div class="booking-detail-label">Bus</div>
+        <div class="booking-detail-value">{{ booking['name'] }}</div>
+      </div>
+      <div>
+        <div class="booking-detail-label">Date</div>
+        <div class="booking-detail-value" id="booking-date-{{ booking['id'] }}">
+          {{ booking['date'] or '&mdash;' }}
+        </div>
+      </div>
+      <div>
+        <div class="booking-detail-label">Departure</div>
+        <div class="booking-detail-value">
+          {{ booking['dep_time'] if booking['dep_time'] else '&mdash;' }}
+        </div>
+      </div>
+      <div>
+        <div class="booking-detail-label">Total Paid</div>
+        <div class="booking-detail-value" style="color:var(--accent);font-weight:700;">
+          &#x20B9;{{ booking['total_price'] }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin note (shown after request is decided) -->
+    {% if req and req['status'] != 'pending' and req['admin_note'] %}
+    <div style="margin-top:16px;padding:10px 14px;font-size:12px;border-radius:var(--radius-sm);
+                background:{{ 'var(--success-pale)' if req['status'] == 'approved' else 'var(--danger-pale)' }};
+                color:{{ 'var(--success)' if req['status'] == 'approved' else 'var(--danger)' }};">
+      <i class="fas fa-comment-dots" style="margin-right:5px;"></i>
+      <strong>Admin note:</strong> {{ req['admin_note'] }}
+    </div>
+    {% endif %}
+
+    <!-- Feedback / review (shown by JS for completed trips only) -->
+    <div id="review-area-{{ booking['id'] }}"
+         style="display:none;margin-top:16px;padding:16px;
+                background:var(--surface-2);border-radius:var(--radius-md);">
+      <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px;">
+        <i class="fas fa-star" style="color:#F4B942;margin-right:5px;"></i>
+        How was your trip?
+      </div>
+      <div id="star-row-{{ booking['id'] }}" style="display:flex;gap:6px;margin-bottom:12px;">
+        {% for s in range(1,6) %}
+        <button onclick="rateStar({{ booking['id'] }},{{ s }})"
+                data-star="{{ s }}"
+                style="font-size:24px;background:none;border:none;cursor:pointer;
+                       color:var(--border-strong);transition:all 0.15s ease;
+                       padding:2px;line-height:1;">&#9733;</button>
+        {% endfor %}
+      </div>
+      <textarea id="review-text-{{ booking['id'] }}"
+                placeholder="Tell us about your journey..."
+                style="width:100%;padding:10px 12px;
+                       border:1.5px solid var(--border-strong);
+                       border-radius:var(--radius-sm);
+                       font-family:'DM Sans',sans-serif;
+                       font-size:13px;resize:none;height:76px;
+                       background:var(--surface);outline:none;
+                       transition:border 0.2s ease;box-sizing:border-box;"
+                onfocus="this.style.borderColor='var(--accent)'"
+                onblur="this.style.borderColor='var(--border-strong)'"></textarea>
+      <button id="review-submit-{{ booking['id'] }}"
+              onclick="submitReview({{ booking['id'] }})"
+              style="margin-top:10px;padding:9px 22px;background:var(--accent);
+                     color:white;border:none;border-radius:var(--radius-sm);
+                     font-family:'DM Sans',sans-serif;font-size:13px;
+                     font-weight:600;cursor:pointer;transition:all 0.2s ease;">
+        Submit Feedback
+      </button>
+      <div id="review-done-{{ booking['id'] }}"
+           style="display:none;font-size:13px;font-weight:600;
+                  margin-top:10px;color:var(--success);">
+        <i class="fas fa-check-circle"></i> Feedback submitted!
+        <span id="review-status-label-{{ booking['id'] }}"
+              style="font-size:11px;margin-left:4px;font-weight:500;"></span>
+      </div>
+    </div>
+
+    <!-- Reschedule / Cancel buttons -->
+    <div class="booking-actions" id="booking-actions-{{ booking['id'] }}">
+      <a href="{{ url_for('reschedule_ticket') }}" class="btn-ghost">
+        <i class="fas fa-calendar-alt"></i> Reschedule
+      </a>
+      <a href="{{ url_for('cancel_ticket') }}" class="btn-ghost danger">
+        <i class="fas fa-times-circle"></i> Cancel
+      </a>
+    </div>
+
+  </div>
+  {% endfor %}
+
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">&#127915;</div>
+    <div class="empty-title">No bookings yet</div>
+    <div class="empty-text">Your confirmed tickets will appear here after you book.</div>
+    <a href="{{ url_for('user_dashboard') }}"
+       style="display:inline-flex;align-items:center;gap:8px;margin-top:24px;
+              padding:12px 24px;background:var(--accent);color:white;
+              border-radius:var(--radius-md);text-decoration:none;
+              font-weight:600;font-size:14px;"
+       onmouseover="this.style.transform='translateY(-2px)'"
+       onmouseout="this.style.transform=''">
+      <i class="fas fa-search"></i> Find Buses
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Review success modal -->
+<div id="reviewSuccessModal"
+     style="display:none;position:fixed;inset:0;z-index:900;
+            align-items:center;justify-content:center;
+            background:rgba(26,26,24,0.4);backdrop-filter:blur(5px);">
+  <div style="background:var(--surface);border-radius:var(--radius-xl);
+              padding:40px 32px;max-width:360px;width:100%;
+              text-align:center;box-shadow:var(--shadow-xl);margin:20px;">
+    <div style="font-size:48px;margin-bottom:12px;">&#11088;</div>
+    <h3 style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:8px;">
+      Review submitted!
+    </h3>
+    <p style="font-size:14px;color:var(--text-secondary);">
+      Your feedback helps other travellers make better choices.
+    </p>
+    <button onclick="document.getElementById('reviewSuccessModal').style.display='none'"
+            style="margin-top:24px;padding:10px 28px;background:var(--accent);
+                   color:white;border:none;border-radius:var(--radius-md);
+                   font-family:'DM Sans',sans-serif;font-size:14px;
+                   font-weight:600;cursor:pointer;">Done</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ─────────────────────────────────────────────────────────────
+// TRIP LIFECYCLE  –  upcoming → inprogress → completed
+// Uses actual dep_time / arr_time stored per booking row.
+// Compares local wall-clock milliseconds — no timezone needed.
+// ─────────────────────────────────────────────────────────────
+
+function parseDT(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return NaN;
+  var d = dateStr.split('-'), t = (timeStr || '08:00').split(':');
+  if (d.length < 3 || t.length < 2) return NaN;
+  return new Date(+d[0], +d[1]-1, +d[2], +t[0], +t[1], 0).getTime();
+}
+
+function tripStatus(dateStr, dep, arr) {
+  var start = parseDT(dateStr, dep || '08:00');
+  var end   = parseDT(dateStr, arr || '14:00');
+  if (isNaN(start) || isNaN(end)) return { s:'upcoming', pct:0, col:'var(--accent)' };
+  if (end <= start) end += 86400000;   // overnight route
+  var now = Date.now();
+  if (now < start)  return { s:'upcoming',    pct:0,   col:'var(--accent)'  };
+  if (now >= end)   return { s:'completed',   pct:100, col:'var(--success)' };
+  var pct = Math.min(99, Math.round(((now-start)/(end-start))*100));
+  return { s:'inprogress', pct:pct, col:'#E67E22' };
+}
+
+function daysUntil(dateStr) {
+  if (!dateStr) return 999;
+  var t = new Date(); t.setHours(0,0,0,0);
+  var d = new Date(dateStr + 'T00:00:00');
+  return Math.round((d - t) / 86400000);
+}
+
+function refreshCards() {
+  document.querySelectorAll('.booking-card[data-booking-id]').forEach(function(card) {
+    var id  = card.dataset.bookingId;
+    var dt  = card.dataset.bookingDate || '';
+    var dep = card.dataset.bookingDep  || '08:00';
+    var arr = card.dataset.bookingArr  || '14:00';
+    var inf = tripStatus(dt, dep, arr);
+    var dy  = daysUntil(dt);
+
+    // ── Status badge ──
+    var badge = document.getElementById('status-badge-' + id);
+    var BST = {
+      upcoming:   { st:'background:var(--accent-pale);color:var(--accent);border:1px solid var(--accent-pale-2);', ic:'fa-clock',        lb: dy<0?'Past':dy===0?'Today \u00B7 '+dep:dy===1?'Tomorrow':'In '+dy+' days' },
+      inprogress: { st:'background:#FEF0E6;color:#E67E22;border:1px solid rgba(230,126,34,0.2);',                  ic:'fa-bus',           lb:'En Route \u00B7 '+inf.pct+'%' },
+      completed:  { st:'background:var(--success-pale);color:var(--success);border:1px solid rgba(39,174,96,0.2);',ic:'fa-check-double',  lb:'Trip Completed' }
+    };
+    var bm = BST[inf.s];
+    if (badge) {
+      badge.style.cssText = bm.st + 'display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--radius-full);font-size:12px;font-weight:600;';
+      badge.innerHTML = '<i class="fas '+bm.ic+'"></i> '+bm.lb;
+    }
+
+    // ── Progress bar ──
+    var bar   = document.getElementById('progress-bar-'   + id);
+    var lbl   = document.getElementById('progress-label-' + id);
+    var pct   = document.getElementById('progress-pct-'   + id);
+
+    if (bar) bar.style.background = inf.col;
+    setTimeout(function(){ if(bar) bar.style.width = inf.pct+'%'; }, 250);
+
+    if (inf.s === 'upcoming') {
+      if (lbl) lbl.textContent = 'Departs '+(dy===0?'today':dt)+' at '+dep;
+      if (pct) { pct.textContent=''; pct.style.color='var(--text-muted)'; }
+    } else if (inf.s === 'inprogress') {
+      if (lbl) lbl.textContent = 'Currently travelling \u00B7 arrives '+arr;
+      if (pct) { pct.textContent=inf.pct+'%'; pct.style.color='#E67E22'; }
+      if (bar) { bar.style.background='linear-gradient(90deg,#E67E22,#F39C12,#E67E22)'; bar.style.backgroundSize='200% 100%'; bar.style.animation='progressPulse 2s ease infinite'; }
+    } else {
+      if (lbl) lbl.textContent = 'Arrived '+arr+' \u00B7 journey complete';
+      if (pct) { pct.textContent='100%'; pct.style.color='var(--success)'; }
+    }
+
+    // ── Route arrow ──
+    var arrow = document.getElementById('route-arrow-' + id);
+    if (arrow) {
+      if (inf.s === 'inprogress') {
+        arrow.innerHTML = '<div style="position:relative;flex:1;display:flex;align-items:center;padding:0 8px;"><div style="width:100%;height:2px;background:var(--border-strong);border-radius:1px;"></div><span style="position:absolute;left:'+inf.pct+'%;transform:translateX(-50%);font-size:18px;transition:left 1.5s ease;">\uD83D\uDE8C</span></div>';
+      } else if (inf.s === 'completed') {
+        arrow.innerHTML = '<div style="flex:1;display:flex;align-items:center;padding:0 8px;gap:4px;"><div style="flex:1;height:2px;background:var(--success);border-radius:1px;"></div><i class="fas fa-check-circle" style="color:var(--success);font-size:14px;"></i></div>';
+      }
+    }
+
+    // ── Completed: hide actions, show feedback ──
+    if (inf.s === 'completed') {
+      var acts = document.getElementById('booking-actions-' + id);
+      var rev  = document.getElementById('review-area-'     + id);
+      if (acts) acts.style.display = 'none';
+      if (rev)  { rev.style.display='block'; rev.style.animation='fadeSlideUp 0.5s ease'; }
+      checkFeedbackStatus(id);
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', refreshCards);
+setInterval(refreshCards, 60000);   // advance in-progress bar every minute
+
+// ── Poll request status badges every 30 s ──
+setInterval(function() {
+  fetch('/my-requests/status').then(function(r){ return r.json(); }).then(function(reqs){
+    if (!Array.isArray(reqs)) return;
+    reqs.forEach(function(req){
+      var hdr = document.querySelector('.booking-card[data-booking-id="'+req.booking_id+'"] .booking-card-header');
+      if (!hdr) return;
+      var b = hdr.querySelector('.rsdyn');
+      if (!b){ b=document.createElement('span'); b.className='rsdyn'; (hdr.querySelector('div')||hdr).appendChild(b); }
+      var C={ pending:{bg:'#FEF9EC',co:'#D4A017',bo:'rgba(212,160,23,0.3)',ic:'fa-clock',lb:'Pending'}, approved:{bg:'var(--success-pale)',co:'var(--success)',bo:'rgba(39,174,96,0.25)',ic:'fa-check-circle',lb:'Approved'}, rejected:{bg:'var(--danger-pale)',co:'var(--danger)',bo:'rgba(192,57,43,0.2)',ic:'fa-times-circle',lb:'Rejected'} };
+      var c=C[req.status]; if(!c) return;
+      var tl=req.request_type==='cancel'?'Cancel':'Reschedule';
+      b.style.cssText='display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:'+c.bg+';color:'+c.co+';border:1px solid '+c.bo+';border-radius:var(--radius-full);font-size:11px;font-weight:600;transition:all 0.3s ease;';
+      b.innerHTML='<i class="fas '+c.ic+'"></i> '+tl+' '+c.lb;
+    });
+  }).catch(function(){});
+}, 30000);
+
+// ── Star rating ──
+var _ratings = {};
+function rateStar(bookingId, star) {
+  _ratings[bookingId] = star;
+  var row = document.getElementById('star-row-' + bookingId);
+  if (!row) return;
+  row.querySelectorAll('button').forEach(function(btn){
+    var s = parseInt(btn.dataset.star);
+    btn.style.color     = s <= star ? '#F4B942' : 'var(--border-strong)';
+    btn.style.transform = s <= star ? 'scale(1.25)' : 'scale(1)';
+  });
+}
+
+// ── Submit feedback → /feedback/submit ──
+function submitReview(bookingId) {
+  var rating = _ratings[bookingId];
+  if (!rating) { showToast('Please pick a star rating first.', 'error'); return; }
+  var msgEl   = document.getElementById('review-text-'   + bookingId);
+  var message = msgEl ? msgEl.value.trim() : '';
+  var btn     = document.getElementById('review-submit-' + bookingId);
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting\u2026';
+  btn.disabled  = true;
+  fetch('/feedback/submit', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ booking_id: parseInt(bookingId), rating: rating, message: message })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if (data.status === 'success') {
+      btn.style.display = 'none';
+      var done = document.getElementById('review-done-' + bookingId);
+      if (done) done.style.display = 'block';
+      document.getElementById('reviewSuccessModal').style.display = 'flex';
+    } else {
+      showToast(data.message || 'Submission failed.', 'error');
+      btn.innerHTML = 'Submit Feedback'; btn.disabled = false;
+    }
+  })
+  .catch(function(){ showToast('Network error. Please retry.', 'error'); btn.innerHTML='Submit Feedback'; btn.disabled=false; });
+}
+
+// ── Check feedback status (was it already submitted?) ──
+function checkFeedbackStatus(bookingId) {
+  fetch('/feedback/status/' + bookingId)
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (!data.submitted) return;
+      var btn = document.getElementById('review-submit-' + bookingId);
+      var done = document.getElementById('review-done-'  + bookingId);
+      var lbl  = document.getElementById('review-status-label-' + bookingId);
+      if (btn) btn.style.display = 'none';
+      if (done) done.style.display = 'block';
+      var SM = { reviewed:{t:'Admin reviewed',c:'var(--accent)'}, resolved:{t:'Resolved \u2713',c:'var(--success)'}, reported:{t:'Reported to operator',c:'var(--warning)'} };
+      if (lbl && SM[data.status]) { lbl.textContent='\u00B7 '+SM[data.status].t; lbl.style.color=SM[data.status].c; }
+    })
+    .catch(function(){});
+}
+</script>
+
+<style>
+@keyframes progressPulse {
+  0%,100% { background-position:0% 50%; }
+  50%      { background-position:100% 50%; }
+}
+@keyframes fadeSlideUp {
+  from { opacity:0; transform:translateY(12px); }
+  to   { opacity:1; transform:none; }
+}
+</style>
+{% endblock %}

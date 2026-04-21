@@ -1,0 +1,4 @@
+{
+    "SECRET_KEY": "production_super_secret_key_123",
+    "DATABASE_NAME": "bus_system.db"
+}

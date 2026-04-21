@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in — SwiftSeat</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+</head>
+<body>
+<div class="auth-root">
+
+  <!-- Left: Visual Panel -->
+  <div class="auth-visual">
+    <div class="auth-visual-bg"></div>
+    <div class="auth-visual-pattern"></div>
+
+    <div class="auth-visual-logo">
+      <div class="auth-visual-logo-mark">🚌</div>
+      <span class="auth-visual-logo-name">SwiftSeat</span>
+    </div>
+
+    <!-- Floating card decoration -->
+    <div class="auth-floating-card">
+      <div class="card-bus-name">NueGo Electric AC</div>
+      <div class="card-route">Coimbatore → Chennai</div>
+      <div class="card-seats">
+        {% for i in range(12) %}
+          <div class="mini-seat {% if i in [2, 5, 7] %}taken{% elif i in [3, 8] %}selected{% endif %}"></div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="auth-visual-content">
+      <div class="auth-visual-badge">✦ India's smartest bus booking</div>
+      <h2>Every journey starts with a single seat.</h2>
+      <p>Book buses across India with live seat maps, instant confirmation, and zero hidden fees.</p>
+      <div class="auth-visual-stats">
+        <div>
+          <div class="auth-stat-value">2M+</div>
+          <div class="auth-stat-label">Happy travellers</div>
+        </div>
+        <div>
+          <div class="auth-stat-value">800+</div>
+          <div class="auth-stat-label">Routes covered</div>
+        </div>
+        <div>
+          <div class="auth-stat-value">98%</div>
+          <div class="auth-stat-label">On-time rate</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Form Panel -->
+  <div class="auth-form-side">
+    <div class="auth-form-wrap">
+
+      <div class="auth-mobile-logo">
+        <div class="auth-mobile-logo-mark">🚌</div>
+        <span class="auth-mobile-logo-name">SwiftSeat</span>
+      </div>
+
+      <h1 class="auth-heading">Welcome back</h1>
+      <p class="auth-subheading">Sign in to continue your journey</p>
+
+      {% if error %}
+      <div class="error-msg">
+        <i class="fas fa-exclamation-circle"></i> {{ error }}
+      </div>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('login') }}" id="loginForm">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <div class="input-icon-wrap">
+            <i class="fas fa-user input-icon"></i>
+            <input type="text" name="username" class="form-input" placeholder="Enter your username" required autocomplete="username">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-row-between">
+            <label class="form-label" style="margin:0">Password</label>
+            <a href="#" class="forgot-link" id="forgotBtn">Forgot password?</a>
+          </div>
+          <div class="input-icon-wrap">
+            <i class="fas fa-lock input-icon"></i>
+            <input type="password" name="password" id="pwField" class="form-input" placeholder="Enter your password" required autocomplete="current-password">
+            <i class="fas fa-eye input-toggle-pw" id="togglePw"></i>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary">
+          <i class="fas fa-arrow-right"></i> Sign In
+        </button>
+      </form>
+
+      <div class="auth-divider"><span>Don't have an account?</span></div>
+
+      <div class="auth-switch">
+        <a href="{{ url_for('register') }}">Create an account →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Forgot Password Modal -->
+<div class="modal-overlay" id="forgotModal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" id="modalClose"><i class="fas fa-times"></i></button>
+    <h3>Reset Password</h3>
+    <p>Enter your username and we'll help you reset your password.</p>
+    <div class="form-group">
+      <label class="form-label">Username</label>
+      <div class="input-icon-wrap">
+        <i class="fas fa-user input-icon"></i>
+        <input type="text" class="form-input" placeholder="Your username">
+      </div>
+    </div>
+    <button class="btn-primary" onclick="showResetToast()">
+      <i class="fas fa-paper-plane"></i> Send Reset Link
+    </button>
+  </div>
+</div>
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  function showToast(message, type = 'success', duration = 3500) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+    toast.innerHTML = `<i class="fas ${icon} toast-icon"></i><span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => { toast.classList.add('removing'); setTimeout(() => toast.remove(), 300); }, duration);
+  }
+</script>
+
+<script>
+  // Toggle password visibility
+  document.getElementById('togglePw').addEventListener('click', function() {
+    const pw = document.getElementById('pwField');
+    const isText = pw.type === 'text';
+    pw.type = isText ? 'password' : 'text';
+    this.className = isText ? 'fas fa-eye input-toggle-pw' : 'fas fa-eye-slash input-toggle-pw';
+  });
+
+  // Forgot password modal
+  document.getElementById('forgotBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('forgotModal').classList.add('open');
+  });
+
+  document.getElementById('modalClose').addEventListener('click', function() {
+    document.getElementById('forgotModal').classList.remove('open');
+  });
+
+  document.getElementById('forgotModal').addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+
+  function showResetToast() {
+    document.getElementById('forgotModal').classList.remove('open');
+    showToast('Reset link sent! (Demo mode)', 'success');
+  }
+
+  // Button loading state
+  document.getElementById('loginForm').addEventListener('submit', function() {
+    const btn = this.querySelector('.btn-primary');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+    btn.disabled = true;
+  });
+</script>
+</body>
+</html>

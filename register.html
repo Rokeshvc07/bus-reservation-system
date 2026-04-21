@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account — SwiftSeat</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+</head>
+<body>
+<div class="auth-root">
+  <div class="auth-visual">
+    <div class="auth-visual-bg"></div>
+    <div class="auth-visual-pattern"></div>
+    <div class="auth-visual-logo">
+      <div class="auth-visual-logo-mark">🚌</div>
+      <span class="auth-visual-logo-name">SwiftSeat</span>
+    </div>
+    <div class="auth-floating-card">
+      <div class="card-bus-name">Your first trip awaits</div>
+      <div class="card-route">Create account in 30 seconds</div>
+      <div class="card-seats">
+        {% for i in range(12) %}
+          <div class="mini-seat {% if i in [1, 4, 9] %}taken{% elif i in [0, 6, 11] %}selected{% endif %}"></div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="auth-visual-content">
+      <div class="auth-visual-badge">✦ Free to join, forever</div>
+      <h2>Your travels, beautifully organised.</h2>
+      <p>Track bookings, reschedule trips, and unlock member-only deals — all in one clean dashboard.</p>
+      <div class="auth-visual-stats">
+        <div>
+          <div class="auth-stat-value">0₹</div>
+          <div class="auth-stat-label">Booking fees</div>
+        </div>
+        <div>
+          <div class="auth-stat-value">10%</div>
+          <div class="auth-stat-label">Member discount</div>
+        </div>
+        <div>
+          <div class="auth-stat-value">24/7</div>
+          <div class="auth-stat-label">Support</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="auth-form-side">
+    <div class="auth-form-wrap">
+      <div class="auth-mobile-logo">
+        <div class="auth-mobile-logo-mark">🚌</div>
+        <span class="auth-mobile-logo-name">SwiftSeat</span>
+      </div>
+
+      <h1 class="auth-heading">Create account</h1>
+      <p class="auth-subheading">Join millions of smart travellers</p>
+
+      {% if error %}
+      <div class="error-msg">
+        <i class="fas fa-exclamation-circle"></i> {{ error }}
+      </div>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('register') }}" id="regForm">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <div class="input-icon-wrap">
+            <i class="fas fa-user input-icon"></i>
+            <input type="text" name="username" class="form-input" placeholder="Choose a username" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="input-icon-wrap">
+            <i class="fas fa-lock input-icon"></i>
+            <input type="password" name="password" id="pwField" class="form-input" placeholder="Create a strong password" required>
+            <i class="fas fa-eye input-toggle-pw" id="togglePw"></i>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Confirm Password</label>
+          <div class="input-icon-wrap">
+            <i class="fas fa-lock input-icon"></i>
+            <input type="password" id="confirmPw" class="form-input" placeholder="Repeat your password" required>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" id="submitBtn">
+          <i class="fas fa-user-plus"></i> Create Account
+        </button>
+      </form>
+
+      <div class="auth-divider"><span>Already have an account?</span></div>
+      <div class="auth-switch">
+        <a href="{{ url_for('login') }}">← Sign in instead</a>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  function showToast(message, type = 'success', duration = 3500) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+    toast.innerHTML = `<i class="fas ${icon} toast-icon"></i><span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => { toast.classList.add('removing'); setTimeout(() => toast.remove(), 300); }, duration);
+  }
+</script>
+
+<script>
+  document.getElementById('togglePw').addEventListener('click', function() {
+    const pw = document.getElementById('pwField');
+    const isText = pw.type === 'text';
+    pw.type = isText ? 'password' : 'text';
+    this.className = isText ? 'fas fa-eye input-toggle-pw' : 'fas fa-eye-slash input-toggle-pw';
+  });
+
+  document.getElementById('regForm').addEventListener('submit', function(e) {
+    const pw = document.getElementById('pwField').value;
+    const confirm = document.getElementById('confirmPw').value;
+    if (pw !== confirm) {
+      e.preventDefault();
+      showToast('Passwords do not match', 'error');
+      return;
+    }
+    const btn = document.getElementById('submitBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
+    btn.disabled = true;
+  });
+</script>
+</body>
+</html>
