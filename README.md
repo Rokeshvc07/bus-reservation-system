@@ -42,15 +42,7 @@ config.json
 
 python run.py
 
-## 📸 Screenshots
-
-(Login Page)
-
-(Home Page)
-
-(Booking Page)
-
-(Profile Page)
+screenshots are in seperate folder
 
 ## 🔮 Future Improvements
 
@@ -61,4 +53,4 @@ python run.py
 
 ## 👨‍💻 Author
 
-Rokesh V
+Rokesh VC
