@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Cancel Ticket — SwiftSeat{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="page-header">
+    <h1 class="page-title">Cancel Ticket</h1>
+    <p class="page-subtitle">Request a cancellation and receive your refund</p>
+  </div>
+
+  {% if my_bookings %}
+  <div style="max-width:640px;">
+
+    <div style="background:var(--warning-pale);border:1px solid rgba(230,126,34,0.18);border-radius:var(--radius-md);padding:16px 20px;margin-bottom:28px;display:flex;gap:12px;align-items:flex-start;">
+      <i class="fas fa-info-circle" style="color:var(--warning);margin-top:2px;flex-shrink:0;font-size:15px;"></i>
+      <div>
+        <div style="font-weight:600;font-size:14px;color:var(--text-primary);margin-bottom:8px;">Cancellation Policy</div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div style="font-size:13px;color:var(--text-secondary);display:flex;align-items:center;gap:8px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;display:inline-block;"></span>
+            24+ hours before departure &mdash; <strong style="color:var(--success);margin-left:3px;">Full refund</strong>
+          </div>
+          <div style="font-size:13px;color:var(--text-secondary);display:flex;align-items:center;gap:8px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--warning);flex-shrink:0;display:inline-block;"></span>
+            Within 24 hours &mdash; <strong style="color:var(--warning);margin-left:3px;">50% refund</strong>
+          </div>
+          <div style="font-size:13px;color:var(--text-secondary);display:flex;align-items:center;gap:8px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--danger);flex-shrink:0;display:inline-block;"></span>
+            Within 4 hours &mdash; <strong style="color:var(--danger);margin-left:3px;">No refund</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% for booking in my_bookings %}
+    <div class="booking-card" id="cancel-card-{{ booking['id'] }}">
+      <div class="booking-card-header">
+        <span class="booking-id">TICKET #{{ booking['id'] }}</span>
+        <span class="booking-status confirmed"><i class="fas fa-check-circle"></i> Confirmed</span>
+      </div>
+      <div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:10px;">{{ booking['name'] }}</div>
+      <div style="display:flex;gap:20px;font-size:13px;color:var(--text-secondary);margin-bottom:18px;flex-wrap:wrap;">
+        <span><i class="fas fa-calendar-alt" style="color:var(--accent);margin-right:5px;"></i>{{ booking['date'] }}</span>
+        <span><i class="fas fa-chair" style="color:var(--accent);margin-right:5px;"></i>Seats {{ booking['seat_numbers'] }}</span>
+        <span><i class="fas fa-rupee-sign" style="color:var(--accent);margin-right:3px;"></i>{{ booking['total_price'] }}</span>
+      </div>
+      <button class="btn-ghost danger" onclick="openCancelModal({{ booking['id'] }}, '{{ booking['name'] | replace("'", "\\'") }}', {{ booking['total_price'] }})">
+        <i class="fas fa-times-circle"></i> Cancel This Ticket
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">✅</div>
+    <div class="empty-title">No active bookings</div>
+    <div class="empty-text">You have no tickets to cancel right now.</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Custom Cancel Modal (replaces ugly browser confirm) -->
+<div id="cancelModalOverlay" style="position:fixed;inset:0;z-index:800;display:flex;align-items:center;justify-content:center;background:rgba(26,26,24,0.52);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity 0.3s ease;">
+  <div id="cancelModal" style="background:var(--surface);border-radius:var(--radius-xl);padding:36px 32px 28px;width:100%;max-width:420px;box-shadow:0 32px 80px rgba(0,0,0,0.18);transform:translateY(20px) scale(0.97);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);margin:20px;">
+
+    <div style="width:54px;height:54px;border-radius:50%;background:var(--danger-pale);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:22px;color:var(--danger);">
+      <i class="fas fa-exclamation-triangle"></i>
+    </div>
+
+    <h3 style="font-family:'DM Serif Display',serif;font-size:22px;text-align:center;color:var(--text-primary);margin-bottom:8px;letter-spacing:-0.02em;">Cancel this ticket?</h3>
+    <p id="cancelModalSubtext" style="font-size:14px;color:var(--text-secondary);text-align:center;line-height:1.6;margin-bottom:4px;"></p>
+    <p style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:20px;">This action is permanent and cannot be undone.</p>
+
+    <div id="cancelRefundChip" style="background:var(--success-pale);border:1px solid rgba(39,174,96,0.22);border-radius:var(--radius-full);padding:9px 16px;font-size:13px;font-weight:600;color:var(--success);text-align:center;margin-bottom:24px;"></div>
+
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeCancelModal()" style="flex:1;height:48px;background:var(--surface-2);color:var(--text-secondary);border:1.5px solid var(--border-strong);border-radius:var(--radius-md);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s ease;">
+        Keep Ticket
+      </button>
+      <button id="confirmCancelBtn" onclick="executeCancellation()" style="flex:1;height:48px;background:var(--danger);color:white;border:none;border-radius:var(--radius-md);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);">
+        Yes, Cancel
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _cancelId = null;
+
+function openCancelModal(id, name, amount) {
+  _cancelId = id;
+  document.getElementById('cancelModalSubtext').textContent = "You're about to cancel your ticket for " + name + ".";
+  document.getElementById('cancelRefundChip').textContent = "Estimated refund: \u20b9" + amount + "  \u2014  Full refund eligible";
+  const overlay = document.getElementById('cancelModalOverlay');
+  const modal = document.getElementById('cancelModal');
+  overlay.style.opacity = '1';
+  overlay.style.pointerEvents = 'all';
+  modal.style.transform = 'translateY(0) scale(1)';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCancelModal() {
+  const overlay = document.getElementById('cancelModalOverlay');
+  const modal = document.getElementById('cancelModal');
+  overlay.style.opacity = '0';
+  overlay.style.pointerEvents = 'none';
+  modal.style.transform = 'translateY(20px) scale(0.97)';
+  document.body.style.overflow = '';
+  _cancelId = null;
+}
+
+document.getElementById('cancelModalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeCancelModal();
+});
+
+function executeCancellation() {
+  if (!_cancelId) return;
+  const btn = document.getElementById('confirmCancelBtn');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cancelling\u2026';
+  btn.disabled = true;
+
+  fetch('/cancel_booking/' + _cancelId, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      closeCancelModal();
+      if (data.status === 'success') {
+        const card = document.getElementById('cancel-card-' + _cancelId);
+        if (card) {
+          card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+          card.style.opacity = '0';
+          card.style.transform = 'translateX(24px)';
+          setTimeout(() => card.remove(), 420);
+        }
+        showToast('Ticket cancelled. Refund within 5\u20137 business days.', 'success', 6000);
+        setTimeout(() => {
+          if (document.querySelectorAll('.booking-card').length === 0) location.reload();
+        }, 900);
+      } else {
+        showToast(data.message || 'Cancellation failed. Please try again.', 'error');
+      }
+      btn.innerHTML = 'Yes, Cancel';
+      btn.disabled = false;
+    })
+    .catch(() => {
+      closeCancelModal();
+      showToast('Network error. Please try again.', 'error');
+      btn.innerHTML = 'Yes, Cancel';
+      btn.disabled = false;
+    });
+}
+
+const ccb = document.getElementById('confirmCancelBtn');
+ccb.addEventListener('mouseenter', function() { this.style.background='#A93226'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 18px rgba(192,57,43,0.35)'; });
+ccb.addEventListener('mouseleave', function() { this.style.background='var(--danger)'; this.style.transform=''; this.style.boxShadow=''; });
+</script>
+{% endblock %}

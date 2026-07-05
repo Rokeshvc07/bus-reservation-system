@@ -1,0 +1,1059 @@
+{% extends "base.html" %}
+{% block title %}Book Travel — SwiftSeat{% endblock %}
+
+{% block content %}
+
+<!-- ══ SEARCH SECTION (sticky) ══ -->
+<div class="search-section" id="searchSection">
+  <div class="search-hero" id="searchHero">
+    <h1 class="search-hero-headline">Where are you headed?</h1>
+    <p class="search-hero-sub">Search from 800+ routes across India. Instant booking, zero fees.</p>
+
+    <div class="search-card" id="searchCard">
+      <!-- From -->
+      <div class="search-field" id="fromField" style="position:relative;">
+        <div class="search-field-label">From</div>
+        <div class="search-field-value" id="fromDisplay">
+          <i class="fas fa-map-marker-alt search-field-icon"></i>
+          <span id="fromText" class="placeholder">Origin city</span>
+        </div>
+        <input type="hidden" id="fromValue" value="">
+        <div class="location-dropdown" id="fromDropdown" style="display:none;">
+          <div class="dropdown-search" style="position:relative;">
+            <i class="fas fa-search dropdown-search-icon"></i>
+            <input type="text" id="fromSearch" placeholder="Search city or state..." oninput="filterLocations('from', this.value)">
+          </div>
+          <div class="dropdown-list" id="fromList"></div>
+        </div>
+      </div>
+
+      <!-- Swap -->
+      <button class="search-swap" id="swapBtn" title="Swap cities">
+        <i class="fas fa-arrow-right-arrow-left"></i>
+      </button>
+
+      <!-- To -->
+      <div class="search-field" id="toField" style="position:relative;">
+        <div class="search-field-label">To</div>
+        <div class="search-field-value" id="toDisplay">
+          <i class="fas fa-map-pin search-field-icon"></i>
+          <span id="toText" class="placeholder">Destination city</span>
+        </div>
+        <input type="hidden" id="toValue" value="">
+        <div class="location-dropdown" id="toDropdown" style="display:none;">
+          <div class="dropdown-search" style="position:relative;">
+            <i class="fas fa-search dropdown-search-icon"></i>
+            <input type="text" id="toSearch" placeholder="Search city or state..." oninput="filterLocations('to', this.value)">
+          </div>
+          <div class="dropdown-list" id="toList"></div>
+        </div>
+      </div>
+
+      <div class="search-divider"></div>
+
+      <!-- Date -->
+      <div class="search-date-field" id="dateField" style="position:relative;">
+        <div class="search-date-label">Date of Journey</div>
+        <div class="search-date-value" id="dateDisplay">
+          <i class="fas fa-calendar-alt" style="color:var(--accent);font-size:13px;"></i>
+          <span id="dateText">Today</span>
+        </div>
+        <div class="search-date-shortcuts">
+          <span class="search-shortcut active" id="todayBtn" onclick="setDateShortcut('today')">Today</span>
+          <span class="search-shortcut" id="tomorrowBtn" onclick="setDateShortcut('tomorrow')">Tomorrow</span>
+        </div>
+        <div class="date-picker-dropdown" id="datePicker" style="display:none;">
+          <div class="calendar-header">
+            <button class="calendar-nav" id="prevMonth"><i class="fas fa-chevron-left"></i></button>
+            <span class="calendar-month" id="calendarTitle"></span>
+            <button class="calendar-nav" id="nextMonth"><i class="fas fa-chevron-right"></i></button>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+      </div>
+
+      <button class="search-btn" id="searchBusBtn" onclick="searchBuses()">
+        <i class="fas fa-search"></i> Search Buses
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Results count bar -->
+<div id="resultsCountBar" style="display:none;">
+  <div class="results-count-bar">
+    <div class="results-count-text">
+      <strong id="busCountNum">0</strong> buses found &middot; <span id="routeSummary"></span>
+    </div>
+    <div class="results-sort">
+      <span>Sort by:</span>
+      <button class="sort-btn active" onclick="sortBuses('rating', this)">Rating</button>
+      <button class="sort-btn" onclick="sortBuses('departure', this)">Departure</button>
+      <button class="sort-btn" onclick="sortBuses('price', this)">Price</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main layout -->
+<div class="page-layout" id="mainLayout" style="padding-top:16px;">
+
+  <!-- Filter sidebar -->
+  <div class="filter-sidebar" id="filterSidebar" style="display:none;">
+    <div class="filter-card">
+      <div class="filter-title">Bus Type <span class="filter-clear" onclick="clearFilters()">Clear all</span></div>
+      <label class="filter-option" onclick="toggleFilter(this,'AC')">
+        <div class="filter-check"><i class="fas fa-check"></i></div>
+        <span class="filter-option-label">AC</span>
+        <span class="filter-option-count" id="count-AC">0</span>
+      </label>
+      <label class="filter-option" onclick="toggleFilter(this,'Non-AC')">
+        <div class="filter-check"><i class="fas fa-check"></i></div>
+        <span class="filter-option-label">Non-AC</span>
+        <span class="filter-option-count" id="count-NonAC">0</span>
+      </label>
+      <label class="filter-option" onclick="toggleFilter(this,'Sleeper')">
+        <div class="filter-check"><i class="fas fa-check"></i></div>
+        <span class="filter-option-label">Sleeper</span>
+        <span class="filter-option-count" id="count-Sleeper">0</span>
+      </label>
+    </div>
+    <div class="filter-card">
+      <div class="filter-title">Departure Time</div>
+      <label class="filter-option" onclick="toggleFilter(this,'morning')">
+        <div class="filter-check"><i class="fas fa-check"></i></div>
+        <span class="filter-option-label">Morning (6-12)</span>
+        <span class="filter-option-count" id="count-morning">0</span>
+      </label>
+      <label class="filter-option" onclick="toggleFilter(this,'afternoon')">
+        <div class="filter-check"><i class="fas fa-check"></i></div>
+        <span class="filter-option-label">Afternoon (12-18)</span>
+        <span class="filter-option-count" id="count-afternoon">0</span>
+      </label>
+      <label class="filter-option" onclick="toggleFilter(this,'night')">
+        <div class="filter-check"><i class="fas fa-check"></i></div>
+        <span class="filter-option-label">Night (18-24)</span>
+        <span class="filter-option-count" id="count-night">0</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Results list -->
+  <div class="results-list" id="resultsList">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🚌</div>
+      <div class="empty-title">Ready to go?</div>
+      <div class="empty-text">Search for buses above to see available routes.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SEAT PANEL (right slide-in) ══ -->
+<div class="seat-panel-overlay" id="seatPanelOverlay">
+  <div class="seat-panel-backdrop" onclick="closeSeatPanel()"></div>
+  <div class="seat-panel" id="seatPanel">
+
+    <div class="seat-panel-header">
+      <div>
+        <div class="seat-panel-bus-name" id="panelBusName">—</div>
+        <div class="seat-panel-route" id="panelRoute">
+          <i class="fas fa-map-marker-alt" style="color:var(--accent)"></i>
+          <span id="panelRouteText">—</span>
+        </div>
+        <div class="seat-panel-time">
+          <span id="panelDepTime">—</span>
+          <i class="fas fa-arrow-right" style="color:var(--text-muted);font-size:12px;"></i>
+          <span id="panelArrTime">—</span>
+          <span style="font-size:12px;color:var(--text-muted);font-family:'DM Sans',sans-serif;" id="panelDuration">—</span>
+        </div>
+      </div>
+      <button class="seat-panel-close" onclick="closeSeatPanel()"><i class="fas fa-times"></i></button>
+    </div>
+
+    <div class="seat-panel-body">
+      <div class="seat-panel-tabs">
+        <button class="seat-panel-tab active" onclick="switchPanelTab('seats',this)">Select Seats</button>
+        <button class="seat-panel-tab" onclick="switchPanelTab('route',this)">Bus Route</button>
+        <button class="seat-panel-tab" onclick="switchPanelTab('boarding',this)">Boarding Point</button>
+        <button class="seat-panel-tab" onclick="switchPanelTab('amenities',this)">Amenities</button>
+      </div>
+
+      <!-- Seats tab -->
+      <div id="tab-seats">
+        <div class="seat-legend">
+          <div class="legend-item"><div class="legend-dot available"></div> Available</div>
+          <div class="legend-item"><div class="legend-dot selected"></div> Selected</div>
+          <div class="legend-item"><div class="legend-dot booked"></div> Booked</div>
+          <div class="legend-item" style="margin-left:auto;font-size:11px;color:var(--text-muted);">
+            🪟 Window +₹30 &nbsp; 🪑 Aisle
+          </div>
+        </div>
+        <div class="bus-diagram">
+          <div class="bus-front">
+            <div class="bus-driver-icon">🚗</div>
+          </div>
+          <div id="seatMapContainer"></div>
+        </div>
+      </div>
+
+      <!-- Route tab -->
+      <div id="tab-route" style="display:none;">
+        <div class="route-stops">
+          <div class="route-stop">
+            <div class="route-stop-dot filled"></div>
+            <div class="route-stop-info">
+              <div class="route-stop-name" id="routeFrom">—</div>
+              <div class="route-stop-time">Departure</div>
+            </div>
+          </div>
+          <div class="route-stop">
+            <div class="route-stop-dot"></div>
+            <div class="route-stop-info">
+              <div class="route-stop-name" id="routeTo">—</div>
+              <div class="route-stop-time">Arrival</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Boarding tab -->
+      <div id="tab-boarding" style="display:none;">
+        <div style="background:var(--accent-pale);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
+          <div style="font-weight:600;font-size:14px;color:var(--accent);margin-bottom:4px;" id="boardingMain">City Bus Stand</div>
+          <div style="font-size:12px;color:var(--text-muted);">Main boarding point · Arrive 15 mins early</div>
+        </div>
+      </div>
+
+      <!-- Amenities tab -->
+      <div id="tab-amenities" style="display:none;">
+        <div class="amenity-grid">
+          <div class="amenity-item"><div class="amenity-icon">❄️</div>Air Conditioning</div>
+          <div class="amenity-item"><div class="amenity-icon">🔌</div>Charging Port</div>
+          <div class="amenity-item"><div class="amenity-icon">📶</div>Free WiFi</div>
+          <div class="amenity-item"><div class="amenity-icon">🎬</div>Entertainment</div>
+          <div class="amenity-item"><div class="amenity-icon">💺</div>Reclining Seats</div>
+          <div class="amenity-item"><div class="amenity-icon">🛡️</div>Live Tracking</div>
+          <div class="amenity-item"><div class="amenity-icon">🚻</div>Washroom</div>
+          <div class="amenity-item"><div class="amenity-icon">🔒</div>Safe Travel</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="seat-panel-footer">
+      <div class="selected-seats-summary" id="seatsSummary">
+        <span style="font-size:13px;color:var(--text-muted);">No seats selected</span>
+      </div>
+      <div class="price-breakdown" id="priceBreakdown" style="display:none;">
+        <div class="price-row">
+          <span id="seatsCountText">0 seats × ₹0</span>
+          <span id="subtotalText">₹0</span>
+        </div>
+        <div class="price-row">
+          <span>Convenience fee</span><span>₹0</span>
+        </div>
+        <div class="price-row total">
+          <span>Total</span><span id="totalPriceText">₹0</span>
+        </div>
+      </div>
+      <button class="btn-book" id="bookBtn" onclick="openPaymentModal()" disabled>
+        <i class="fas fa-lock"></i> Proceed to Pay
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAYMENT FLOW MODAL ══ -->
+<div id="paymentOverlay" style="position:fixed;inset:0;z-index:700;
+     display:flex;align-items:center;justify-content:center;
+     background:rgba(26,26,24,0.55);backdrop-filter:blur(7px);
+     opacity:0;pointer-events:none;transition:opacity 0.3s ease;">
+
+  <div id="paymentModal" style="background:var(--surface);border-radius:var(--radius-xl);
+       width:100%;max-width:460px;box-shadow:var(--shadow-xl);margin:20px;
+       overflow:hidden;transform:translateY(20px) scale(0.97);
+       transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);">
+
+    <!-- Step indicators -->
+    <div style="display:flex;border-bottom:1px solid var(--border);">
+      <div id="pstep-1" style="flex:1;padding:14px 0;text-align:center;font-size:12px;font-weight:600;border-bottom:2px solid var(--accent);color:var(--accent);transition:all 0.3s;">
+        <i class="fas fa-receipt" style="display:block;font-size:14px;margin-bottom:3px;"></i>Summary
+      </div>
+      <div id="pstep-2" style="flex:1;padding:14px 0;text-align:center;font-size:12px;font-weight:600;border-bottom:2px solid transparent;color:var(--text-muted);transition:all 0.3s;">
+        <i class="fas fa-credit-card" style="display:block;font-size:14px;margin-bottom:3px;"></i>Payment
+      </div>
+      <div id="pstep-3" style="flex:1;padding:14px 0;text-align:center;font-size:12px;font-weight:600;border-bottom:2px solid transparent;color:var(--text-muted);transition:all 0.3s;">
+        <i class="fas fa-check-circle" style="display:block;font-size:14px;margin-bottom:3px;"></i>Confirm
+      </div>
+    </div>
+
+    <!-- Panel 1: Summary -->
+    <div id="pay-panel-1" style="padding:28px;">
+      <h3 style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text-primary);margin-bottom:20px;">Order Summary</h3>
+      <div style="background:var(--surface-2);border-radius:var(--radius-md);padding:16px;margin-bottom:16px;">
+        <div style="font-weight:600;font-size:15px;color:var(--text-primary);margin-bottom:8px;" id="pay-bus-name">—</div>
+        <div style="font-size:13px;color:var(--text-secondary);display:flex;flex-direction:column;gap:4px;">
+          <span><i class="fas fa-chair" style="color:var(--accent);margin-right:6px;width:14px;"></i>Seats: <span id="pay-seats-label">—</span></span>
+          <span><i class="fas fa-calendar-alt" style="color:var(--accent);margin-right:6px;width:14px;"></i>Date: <span id="pay-date-label">—</span></span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);">
+          <span>Base fare</span><span id="pay-base-fare">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);">
+          <span>GST (5%)</span><span id="pay-gst">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);">
+          <span>Convenience fee</span><span style="color:var(--success);font-weight:600;">FREE</span>
+        </div>
+        <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+        <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:700;color:var(--text-primary);">
+          <span>Total payable</span><span id="pay-total-amount" style="color:var(--accent);">—</span>
+        </div>
+      </div>
+      <button onclick="goPayStep(2)" class="btn-book" style="width:100%;height:48px;">
+        Continue to Payment <i class="fas fa-arrow-right" style="margin-left:6px;font-size:12px;"></i>
+      </button>
+      <button onclick="closePaymentModal()" style="width:100%;margin-top:10px;padding:10px;background:none;border:none;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;">Cancel</button>
+    </div>
+
+    <!-- Panel 2: Payment Method -->
+    <div id="pay-panel-2" style="padding:28px;display:none;">
+      <h3 style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text-primary);margin-bottom:20px;">Choose Payment Method</h3>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
+        <label id="pm-upi" onclick="selectPayMethod('upi')"
+            style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1.5px solid var(--accent);border-radius:var(--radius-md);cursor:pointer;background:var(--accent-pale);transition:all 0.2s ease;">
+          <div style="width:38px;height:38px;border-radius:var(--radius-sm);background:var(--accent);display:flex;align-items:center;justify-content:center;color:white;font-size:18px;flex-shrink:0;">&#9889;</div>
+          <div><div style="font-weight:600;font-size:14px;">UPI</div><div style="font-size:12px;color:var(--text-muted);">GPay, PhonePe, Paytm, BHIM</div></div>
+          <i class="fas fa-check-circle" id="pm-check-upi" style="margin-left:auto;color:var(--accent);font-size:16px;"></i>
+        </label>
+        <label id="pm-card" onclick="selectPayMethod('card')"
+            style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1.5px solid var(--border-strong);border-radius:var(--radius-md);cursor:pointer;transition:all 0.2s ease;">
+          <div style="width:38px;height:38px;border-radius:var(--radius-sm);background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">&#128179;</div>
+          <div><div style="font-weight:600;font-size:14px;">Debit / Credit Card</div><div style="font-size:12px;color:var(--text-muted);">Visa, Mastercard, RuPay</div></div>
+          <i class="fas fa-check-circle" id="pm-check-card" style="margin-left:auto;color:var(--accent);font-size:16px;display:none;"></i>
+        </label>
+        <label id="pm-netbanking" onclick="selectPayMethod('netbanking')"
+            style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1.5px solid var(--border-strong);border-radius:var(--radius-md);cursor:pointer;transition:all 0.2s ease;">
+          <div style="width:38px;height:38px;border-radius:var(--radius-sm);background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">&#127974;</div>
+          <div><div style="font-weight:600;font-size:14px;">Net Banking</div><div style="font-size:12px;color:var(--text-muted);">All major Indian banks</div></div>
+          <i class="fas fa-check-circle" id="pm-check-netbanking" style="margin-left:auto;color:var(--accent);font-size:16px;display:none;"></i>
+        </label>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="goPayStep(1)" style="flex:0 0 44px;height:48px;border:1.5px solid var(--border-strong);border-radius:var(--radius-md);background:transparent;cursor:pointer;color:var(--text-secondary);font-size:16px;">&#8592;</button>
+        <button onclick="goPayStep(3)" class="btn-book" style="flex:1;height:48px;">
+          <i class="fas fa-lock" style="font-size:12px;margin-right:6px;"></i>Pay Securely
+        </button>
+      </div>
+      <p style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:10px;">
+        <i class="fas fa-shield-alt" style="color:var(--accent);margin-right:3px;"></i>256-bit SSL encrypted
+      </p>
+    </div>
+
+    <!-- Panel 3: Processing / Success / Error -->
+    <div id="pay-panel-3" style="padding:40px 28px;display:none;text-align:center;">
+      <div id="pay-processing">
+        <div style="width:64px;height:64px;border-radius:50%;border:3px solid var(--accent-pale-2);border-top:3px solid var(--accent);margin:0 auto 20px;animation:spin 0.9s linear infinite;"></div>
+        <div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:6px;" id="pay-status-text">Processing payment...</div>
+        <div style="font-size:13px;color:var(--text-muted);">Please do not close this window</div>
+      </div>
+      <div id="pay-success" style="display:none;">
+        <div style="width:72px;height:72px;border-radius:50%;background:var(--success-pale);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;animation:successPop 0.5s cubic-bezier(0.34,1.56,0.64,1);">&#9989;</div>
+        <h3 style="font-family:'DM Serif Display',serif;font-size:24px;color:var(--text-primary);margin-bottom:8px;">Booking Confirmed!</h3>
+        <p style="font-size:14px;color:var(--text-secondary);margin-bottom:8px;" id="pay-confirm-desc"></p>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:24px;">Saved to My Bookings.</p>
+        <button onclick="closePaymentModal()" class="btn-book" style="height:46px;padding:0 24px;">
+          <i class="fas fa-ticket-alt"></i> View My Bookings
+        </button>
+      </div>
+      <div id="pay-error" style="display:none;">
+        <div style="font-size:40px;margin-bottom:16px;">&#10060;</div>
+        <h3 style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--danger);margin-bottom:8px;">Payment Failed</h3>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">Seats held for 5 minutes. Please try again.</p>
+        <button onclick="goPayStep(2)" class="btn-book" style="height:46px;padding:0 24px;">Try Again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes successPop { from { transform:scale(0);opacity:0; } to { transform:scale(1);opacity:1; } }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ══════════════════════════════════════════════
+// LOCATION DATA
+// ══════════════════════════════════════════════
+const LOCATIONS = {
+  "Tamil Nadu": [
+    "Chennai","Coimbatore","Madurai","Tiruchirappalli","Salem","Tirunelveli",
+    "Tiruppur","Erode","Vellore","Thoothukudi","Thanjavur","Dindigul",
+    "Cuddalore","Kanchipuram","Nagercoil","Karur","Kumbakonam","Hosur",
+    "Udhagamandalam","Pollachi","Ramanathapuram","Virudhunagar","Namakkal"
+  ],
+  "Major Cities": [
+    "Mumbai","Delhi","Bangalore","Hyderabad","Kolkata","Pune","Ahmedabad",
+    "Jaipur","Lucknow","Chandigarh","Bhopal","Patna","Bhubaneswar","Kochi"
+  ],
+  "States": [
+    "Andhra Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat",
+    "Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala",
+    "Madhya Pradesh","Maharashtra","Odisha","Punjab","Rajasthan",
+    "Telangana","Uttar Pradesh","Uttarakhand","West Bengal"
+  ]
+};
+
+const DB_BUSES = {{ buses | tojson }};
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let fromCity = '', toCity = '', journeyDate = '';
+let currentBusId = null, currentBusPrice = 0, currentDepTime = '08:00', currentArrTime = '13:00';
+let selectedSeats = [];       // {num, price}[]
+let bookedSeats   = [];
+let allBuses      = [];
+let activeFilters = new Set();
+
+// ══════════════════════════════════════════════
+// DATE SETUP
+// ══════════════════════════════════════════════
+const today = new Date();
+let calYear = today.getFullYear(), calMonth = today.getMonth();
+let selectedDate = new Date(today);
+
+function formatDate(d) {
+  const days   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return days[d.getDay()] + ', ' + d.getDate() + ' ' + months[d.getMonth()];
+}
+function formatDateISO(d) { return d.toISOString().split('T')[0]; }
+
+document.getElementById('dateText').textContent = formatDate(selectedDate);
+journeyDate = formatDateISO(selectedDate);
+
+function setDateShortcut(which) {
+  const d = new Date(today);
+  if (which === 'tomorrow') d.setDate(d.getDate() + 1);
+  selectedDate = d;
+  journeyDate  = formatDateISO(d);
+  document.getElementById('dateText').textContent = formatDate(d);
+  document.getElementById('todayBtn').classList.toggle('active', which === 'today');
+  document.getElementById('tomorrowBtn').classList.toggle('active', which === 'tomorrow');
+}
+
+function renderCalendar() {
+  const months = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  document.getElementById('calendarTitle').textContent = months[calMonth] + ' ' + calYear;
+  const grid = document.getElementById('calendarGrid');
+  grid.innerHTML = '';
+  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d => {
+    const h = document.createElement('div');
+    h.className = 'calendar-day-header';
+    h.textContent = d;
+    grid.appendChild(h);
+  });
+  const firstDay  = new Date(calYear, calMonth, 1).getDay();
+  const daysInMon = new Date(calYear, calMonth + 1, 0).getDate();
+  const todayStr  = formatDateISO(today);
+  for (let i = 0; i < firstDay; i++) {
+    const el = document.createElement('div'); el.className = 'calendar-day empty'; grid.appendChild(el);
+  }
+  for (let d = 1; d <= daysInMon; d++) {
+    const el = document.createElement('div');
+    el.className = 'calendar-day';
+    el.textContent = d;
+    const thisDate = new Date(calYear, calMonth, d);
+    const thisStr  = formatDateISO(thisDate);
+    if (thisStr < todayStr) el.classList.add('past');
+    if (thisStr === formatDateISO(selectedDate)) el.classList.add('selected');
+    if (thisStr === todayStr) el.classList.add('today');
+    if (!el.classList.contains('past')) {
+      el.onclick = () => {
+        selectedDate = thisDate; journeyDate = thisStr;
+        document.getElementById('dateText').textContent = formatDate(thisDate);
+        const tStr = formatDateISO(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1));
+        document.getElementById('todayBtn').classList.toggle('active', thisStr === todayStr);
+        document.getElementById('tomorrowBtn').classList.toggle('active', thisStr === tStr);
+        renderCalendar(); hideDatePicker();
+      };
+    }
+    grid.appendChild(el);
+  }
+}
+
+document.getElementById('prevMonth').addEventListener('click', e => { e.stopPropagation(); calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); });
+document.getElementById('nextMonth').addEventListener('click', e => { e.stopPropagation(); calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); });
+
+document.getElementById('dateField').addEventListener('click', function(e) {
+  if (e.target.closest('.search-shortcut')) return;
+  const dp = document.getElementById('datePicker');
+  const isOpen = dp.style.display !== 'none';
+  closeAllDropdowns();
+  if (!isOpen) { renderCalendar(); dp.style.display = 'block'; }
+});
+function hideDatePicker() { document.getElementById('datePicker').style.display = 'none'; }
+
+// ══════════════════════════════════════════════
+// LOCATION DROPDOWNS
+// ══════════════════════════════════════════════
+function renderLocationList(listId, filter='') {
+  const list = document.getElementById(listId);
+  list.innerHTML = '';
+  const f = filter.toLowerCase();
+  Object.entries(LOCATIONS).forEach(([section, cities]) => {
+    const filtered = cities.filter(c => !filter || c.toLowerCase().includes(f));
+    if (!filtered.length) return;
+    const header = document.createElement('div');
+    header.className = 'dropdown-section-title';
+    header.textContent = section;
+    list.appendChild(header);
+    filtered.forEach(city => {
+      const el = document.createElement('div');
+      el.className = 'dropdown-option';
+      el.innerHTML = '<div class="dropdown-option-icon"><i class="fas fa-map-marker-alt"></i></div>' +
+        '<div><div class="dropdown-option-name">' + city + '</div>' +
+        '<div class="dropdown-option-sub">' + section + '</div></div>';
+      el.onclick = () => selectLocation(listId === 'fromList' ? 'from' : 'to', city);
+      list.appendChild(el);
+    });
+  });
+}
+function filterLocations(type, val) { renderLocationList(type==='from'?'fromList':'toList', val); }
+function selectLocation(type, city) {
+  if (type === 'from') {
+    fromCity = city;
+    document.getElementById('fromText').textContent = city;
+    document.getElementById('fromText').classList.remove('placeholder');
+    document.getElementById('fromDropdown').style.display = 'none';
+  } else {
+    toCity = city;
+    document.getElementById('toText').textContent = city;
+    document.getElementById('toText').classList.remove('placeholder');
+    document.getElementById('toDropdown').style.display = 'none';
+  }
+}
+
+document.getElementById('fromField').addEventListener('click', function(e) {
+  if (e.target.closest('.location-dropdown')) return;
+  const dd = document.getElementById('fromDropdown');
+  const isOpen = dd.style.display !== 'none';
+  closeAllDropdowns();
+  if (!isOpen) { renderLocationList('fromList'); dd.style.display = 'block'; setTimeout(()=>document.getElementById('fromSearch').focus(),50); }
+});
+document.getElementById('toField').addEventListener('click', function(e) {
+  if (e.target.closest('.location-dropdown')) return;
+  const dd = document.getElementById('toDropdown');
+  const isOpen = dd.style.display !== 'none';
+  closeAllDropdowns();
+  if (!isOpen) { renderLocationList('toList'); dd.style.display = 'block'; setTimeout(()=>document.getElementById('toSearch').focus(),50); }
+});
+
+function closeAllDropdowns() {
+  document.getElementById('fromDropdown').style.display = 'none';
+  document.getElementById('toDropdown').style.display   = 'none';
+  hideDatePicker();
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#fromField') && !e.target.closest('#toField') && !e.target.closest('#dateField')) closeAllDropdowns();
+});
+
+document.getElementById('swapBtn').addEventListener('click', function() {
+  [fromCity, toCity] = [toCity, fromCity];
+  const fT = document.getElementById('fromText'), tT = document.getElementById('toText');
+  [fT.textContent, tT.textContent] = [tT.textContent, fT.textContent];
+  if (fromCity) fT.classList.remove('placeholder'); else fT.classList.add('placeholder');
+  if (toCity)   tT.classList.remove('placeholder'); else tT.classList.add('placeholder');
+});
+
+// ══════════════════════════════════════════════
+// DYNAMIC PRICING ENGINE
+// ══════════════════════════════════════════════
+const CITY_DISTANCES = {
+  'Chennai-Coimbatore':300, 'Chennai-Madurai':460, 'Chennai-Bengaluru':350,
+  'Chennai-Hyderabad':630,  'Chennai-Tirunelveli':590, 'Chennai-Salem':320,
+  'Chennai-Tiruchirappalli':325, 'Chennai-Vellore':145, 'Chennai-Kochi':680,
+  'Coimbatore-Bengaluru':360, 'Coimbatore-Madurai':210, 'Coimbatore-Chennai':300,
+  'Mumbai-Pune':150, 'Mumbai-Hyderabad':710, 'Delhi-Jaipur':280, 'Delhi-Agra':200,
+};
+function getDistKm(a,b) {
+  return CITY_DISTANCES[a+'-'+b] || CITY_DISTANCES[b+'-'+a] || 300;
+}
+
+const BUS_TYPES = [
+  { label:'Electric AC Seater (2+2)', rate:0.95, seats:40 },
+  { label:'AC Sleeper (2+1)',          rate:1.40, seats:36 },
+  { label:'Non-AC Seater (3+2)',       rate:0.58, seats:54 },
+  { label:'AC Seater (2+2)',           rate:0.88, seats:40 },
+  { label:'AC Semi-Sleeper (2+2)',     rate:1.10, seats:44 },
+  { label:'Volvo Multi-Axle AC',       rate:1.25, seats:44 },
+];
+const BUS_OPS = [
+  {name:'NueGo Electric', ti:0, rating:'4.5', reviews:590},
+  {name:'TNSTC Volvo',    ti:5, rating:'4.3', reviews:312},
+  {name:'SRS Travels',    ti:2, rating:'3.9', reviews:187},
+  {name:'Orange Tours',   ti:3, rating:'4.6', reviews:743},
+  {name:'KPN Travels',    ti:4, rating:'4.1', reviews:251},
+  {name:'Parveen Travels',ti:1, rating:'4.4', reviews:418},
+];
+const DEP_TIMES = ['06:00','10:30','14:00','17:00','21:30','23:00'];
+
+function calcArr(dep, hrs) {
+  const [h,m] = dep.split(':').map(Number);
+  const total = h*60 + m + hrs*60;
+  return String(Math.floor(total/60)%24).padStart(2,'0')+':'+String(Math.round(total%60)).padStart(2,'0');
+}
+
+function generateDemoBuses(from, to) {
+  const dist = getDistKm(from, to);
+  return BUS_OPS.map((op, i) => {
+    const bt    = BUS_TYPES[op.ti];
+    const base  = Math.round((dist * bt.rate) / 10) * 10;
+    const depH  = parseInt(DEP_TIMES[i]);
+    const surge = (depH >= 21 || depH < 6) ? 1.08 : (depH < 12 ? 0.95 : 1.0);
+    const price = Math.round(base * surge / 5) * 5;
+    const offsets = [4.5,4.5,4.5,4.75,4.5,5.25];
+    return {
+      id:100+i, name:op.name, route:from+' - '+to, price, dist,
+      seats:bt.seats, type:bt.label,
+      dep:DEP_TIMES[i], arr:calcArr(DEP_TIMES[i],offsets[i]),
+      rating:op.rating, reviews:op.reviews, demo:true
+    };
+  });
+}
+
+// ══════════════════════════════════════════════
+// SEARCH
+// ══════════════════════════════════════════════
+function searchBuses() {
+  if (!fromCity) { showToast('Please select origin city','error'); return; }
+  if (!toCity)   { showToast('Please select destination city','error'); return; }
+  if (fromCity === toCity) { showToast('Origin and destination cannot be the same','error'); return; }
+
+  document.getElementById('searchHero').classList.add('compact');
+
+  allBuses = DB_BUSES.length
+    ? DB_BUSES.map(b=>({id:b.id,name:b.name,route:b.route,price:b.price,seats:b.seats,
+        type:b.name.includes('AC')?'AC Seater (2+2)':'Non-AC Seater',
+        dep:genTime(),arr:genTime(),rating:(3.8+Math.random()*1.2).toFixed(1),
+        reviews:Math.floor(200+Math.random()*900)}))
+    : generateDemoBuses(fromCity, toCity);
+
+  renderResults(allBuses);
+  updateFilterCounts(allBuses);
+  document.getElementById('resultsCountBar').style.display = 'block';
+  document.getElementById('filterSidebar').style.display   = 'block';
+  document.getElementById('emptyState').style.display      = 'none';
+  document.getElementById('busCountNum').textContent  = allBuses.length;
+  document.getElementById('routeSummary').textContent = fromCity + ' to ' + toCity;
+}
+
+function genTime() {
+  return String(Math.floor(Math.random()*18+5)).padStart(2,'0')+':'+['00','15','30','45'][Math.floor(Math.random()*4)];
+}
+
+function calcDuration(dep, arr) {
+  const [dh,dm] = dep.split(':').map(Number);
+  let [ah,am]   = arr.split(':').map(Number);
+  if (ah < dh) ah += 24;
+  const mins = (ah*60+am) - (dh*60+dm);
+  return Math.floor(mins/60)+'h '+mins%60+'m';
+}
+
+function renderResults(buses) {
+  const list = document.getElementById('resultsList');
+  list.querySelectorAll('.bus-card').forEach(el => el.remove());
+  buses.forEach((bus, idx) => {
+    const card = document.createElement('div');
+    card.className = 'bus-card';
+    card.style.animationDelay = (idx*60)+'ms';
+    card.dataset.busId = bus.id;
+    const seatsLeft = Math.floor(Math.random()*15+3);
+    card.innerHTML = `
+      <div class="bus-card-main">
+        <div class="bus-operator">
+          <div class="bus-operator-name">${bus.name}</div>
+          <div class="bus-operator-type"><i class="fas fa-bus" style="font-size:10px;"></i> ${bus.type||'AC Seater'}</div>
+          <div class="bus-rating">&#9733; ${bus.rating} <span style="font-weight:400;opacity:.75;font-size:10px;">${bus.reviews}</span></div>
+        </div>
+        <div class="bus-timing">
+          <div>
+            <div class="bus-time">${bus.dep||'09:00'}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${fromCity}</div>
+          </div>
+          <div class="bus-duration-line">
+            <div class="bus-duration-text">${calcDuration(bus.dep||'09:00',bus.arr||'14:00')}</div>
+            <div class="bus-duration-track"></div>
+            <div class="bus-seats-left">${seatsLeft} seats left</div>
+          </div>
+          <div>
+            <div class="bus-time">${bus.arr||'14:00'}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${toCity}</div>
+          </div>
+        </div>
+        <div class="bus-price-section">
+          <div class="bus-price-label">Starting from</div>
+          <div class="bus-price">₹${bus.price}</div>
+          <button class="btn-view-seats" onclick="openSeatPanel(${bus.id},${bus.price},'${bus.name}','${bus.route}','${bus.dep||'09:00'}','${bus.arr||'14:00'}')">
+            View Seats <i class="fas fa-arrow-right" style="font-size:11px;"></i>
+          </button>
+        </div>
+      </div>
+      <div class="bus-card-tags">
+        <span class="bus-tag green"><i class="fas fa-check-circle"></i> Free Cancellation</span>
+        <span class="bus-tag orange"><i class="fas fa-exchange-alt"></i> Free Bus Change</span>
+        ${bus.name.includes('Electric')||bus.name.includes('NueGo')?'<span class="bus-tag blue"><i class="fas fa-bolt"></i> Electric</span>':''}
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+function toggleFilter(el, key) {
+  el.classList.toggle('checked');
+  activeFilters.has(key) ? activeFilters.delete(key) : activeFilters.add(key);
+  applyFilters();
+}
+function clearFilters() {
+  document.querySelectorAll('.filter-option.checked').forEach(el=>el.classList.remove('checked'));
+  activeFilters.clear(); renderResults(allBuses);
+}
+function applyFilters() {
+  if (!activeFilters.size) { renderResults(allBuses); return; }
+  renderResults(allBuses.filter(b => {
+    for (const f of activeFilters) {
+      if (f==='AC' && (b.type||'').includes('AC')) return true;
+      if (f==='Non-AC' && !(b.type||'').includes('AC')) return true;
+    }
+    return false;
+  }));
+}
+function updateFilterCounts(buses) {
+  document.getElementById('count-AC').textContent    = buses.filter(b=>(b.type||'').includes('AC')).length;
+  document.getElementById('count-NonAC').textContent = buses.filter(b=>!(b.type||'').includes('AC')).length;
+}
+function sortBuses(by, btn) {
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const s = [...allBuses];
+  if (by==='rating') s.sort((a,b)=>parseFloat(b.rating)-parseFloat(a.rating));
+  else if (by==='price') s.sort((a,b)=>a.price-b.price);
+  else s.sort((a,b)=>(a.dep||'').localeCompare(b.dep||''));
+  renderResults(s);
+}
+
+// ══════════════════════════════════════════════
+// SEAT PANEL
+// ══════════════════════════════════════════════
+function openSeatPanel(busId, price, name, route, dep, arr) {
+  currentBusId    = busId;
+  currentBusPrice = price;
+  selectedSeats   = [];
+  // ISSUE 1 FIX: save dep/arr so runPaymentFlow() can send them to the backend
+  currentDepTime  = dep || '08:00';
+  currentArrTime  = arr || '13:00';
+
+  // Reset button
+  const btn = document.getElementById('bookBtn');
+  btn.innerHTML    = '<i class="fas fa-lock"></i> Proceed to Pay';
+  btn.disabled     = true;
+
+  document.getElementById('panelBusName').textContent  = name;
+  document.getElementById('panelRouteText').textContent = route;
+  document.getElementById('panelDepTime').textContent  = dep;
+  document.getElementById('panelArrTime').textContent  = arr;
+  document.getElementById('panelDuration').textContent = calcDuration(dep, arr);
+
+  const [from, to] = route.split(' - ');
+  document.getElementById('routeFrom').textContent    = from||fromCity;
+  document.getElementById('routeTo').textContent      = to||toCity;
+  document.getElementById('boardingMain').textContent = (from||fromCity) + ' City Bus Stand';
+
+  document.getElementById('seatPanelOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Loading spinner in seat map
+  document.getElementById('seatMapContainer').innerHTML =
+    '<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px;">' +
+    '<i class="fas fa-spinner fa-spin" style="font-size:22px;margin-bottom:10px;display:block;color:var(--accent);"></i>' +
+    'Loading seat map...</div>';
+
+  fetch('/get_seats/' + busId)
+    .then(r => r.json())
+    .then(data => {
+      bookedSeats = (data.booked||[]).map(Number);
+      renderSeatMap(data.total||20, bookedSeats, price);
+    })
+    .catch(() => { bookedSeats=[]; renderSeatMap(20,[],price); });
+}
+
+function closeSeatPanel() {
+  document.getElementById('seatPanelOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  selectedSeats = [];
+  updateSeatSummary();
+}
+
+function renderSeatMap(total, booked, price) {
+  const container = document.getElementById('seatMapContainer');
+  container.innerHTML = '';
+  const rows  = Math.ceil(total / 4);
+  const table = document.createElement('div');
+  table.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+  for (let row = 0; row < rows; row++) {
+    const rowEl = document.createElement('div');
+    rowEl.style.cssText = 'display:flex;gap:8px;justify-content:center;align-items:center;';
+
+    for (let col = 0; col < 4; col++) {
+      if (col === 2) {
+        const aisle = document.createElement('div');
+        aisle.style.cssText = 'width:20px;';
+        rowEl.appendChild(aisle);
+      }
+
+      const seatNum = row * 4 + col + 1;
+      if (seatNum > total) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'width:44px;height:44px;';
+        rowEl.appendChild(empty);
+        continue;
+      }
+
+      // Dynamic pricing: col 0 and 3 are window seats (+30)
+      const isWindow  = (col === 0 || col === 3);
+      const seatPrice = isWindow ? price + 30 : price;
+      const seatEmoji = isWindow ? 'W' : 'A';  // W=Window, A=Aisle
+
+      const seat = document.createElement('div');
+      seat.className = 'seat-icon';
+      seat.dataset.seatPrice = seatPrice;
+      seat.title = 'Seat ' + seatNum + ' - ' + (isWindow?'Window':'Aisle') + ' - Rs.' + seatPrice;
+      seat.innerHTML =
+        '<div style="font-size:8px;font-weight:700;letter-spacing:.03em;color:inherit;opacity:0.6;margin-bottom:1px;">' + seatEmoji + '</div>' +
+        '<div class="seat-num">' + seatNum + '</div>' +
+        '<div class="seat-price">₹' + seatPrice + '</div>';
+
+      if (booked.map(Number).includes(Number(seatNum))) {
+        seat.classList.add('booked');
+        seat.title = 'Seat ' + seatNum + ' - Booked';
+      } else {
+        seat.onclick = () => toggleSeat(seatNum, seat, seatPrice);
+      }
+
+      rowEl.appendChild(seat);
+    }
+    table.appendChild(rowEl);
+  }
+  container.appendChild(table);
+}
+
+function toggleSeat(num, el, seatPrice) {
+  if (el.classList.contains('selected')) {
+    el.classList.remove('selected');
+    selectedSeats = selectedSeats.filter(s => s.num !== num);
+  } else {
+    el.classList.add('selected');
+    selectedSeats.push({ num, price: seatPrice });
+  }
+  updateSeatSummary();
+}
+
+function updateSeatSummary() {
+  const summary   = document.getElementById('seatsSummary');
+  const breakdown = document.getElementById('priceBreakdown');
+  const bookBtn   = document.getElementById('bookBtn');
+  summary.innerHTML = '';
+
+  if (!selectedSeats.length) {
+    summary.innerHTML = '<span style="font-size:13px;color:var(--text-muted);">No seats selected</span>';
+    breakdown.style.display = 'none';
+    bookBtn.disabled = true;
+    return;
+  }
+
+  const total = selectedSeats.reduce((s,x) => s + x.price, 0);
+
+  selectedSeats.forEach(({num, price}) => {
+    const badge = document.createElement('div');
+    badge.className = 'selected-seat-badge';
+    badge.innerHTML = 'Seat ' + num + ' <span style="font-size:10px;opacity:0.7;">₹' + price + '</span> <button onclick="removeSeat(' + num + ')">&#10005;</button>';
+    summary.appendChild(badge);
+  });
+
+  document.getElementById('seatsCountText').textContent = selectedSeats.length + ' seat' + (selectedSeats.length>1?'s':'') + ' selected';
+  document.getElementById('subtotalText').textContent   = '₹' + total;
+  document.getElementById('totalPriceText').textContent = '₹' + total;
+  breakdown.style.display = 'flex';
+  bookBtn.disabled = false;
+}
+
+function removeSeat(num) {
+  selectedSeats = selectedSeats.filter(s => s.num !== num);
+  document.querySelectorAll('.seat-icon.selected').forEach(icon => {
+    if (parseInt(icon.querySelector('.seat-num').textContent) === num)
+      icon.classList.remove('selected');
+  });
+  updateSeatSummary();
+}
+
+function switchPanelTab(tab, btn) {
+  ['seats','route','boarding','amenities'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('.seat-panel-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════
+// PAYMENT FLOW
+// ══════════════════════════════════════════════
+let _payMethod = 'upi';
+
+function openPaymentModal() {
+  if (!selectedSeats.length) return;
+  const subtotal = selectedSeats.reduce((s,x) => s+x.price, 0);
+  const gst      = Math.round(subtotal * 0.05);
+  const total    = subtotal + gst;
+  const dateStr  = new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+
+  document.getElementById('pay-bus-name').textContent     = document.getElementById('panelBusName').textContent;
+  document.getElementById('pay-seats-label').textContent  = selectedSeats.map(s=>s.num).join(', ');
+  document.getElementById('pay-date-label').textContent   = dateStr;
+  document.getElementById('pay-base-fare').textContent    = '₹' + subtotal;
+  document.getElementById('pay-gst').textContent          = '₹' + gst;
+  document.getElementById('pay-total-amount').textContent = '₹' + total;
+
+  goPayStep(1, true);
+  const overlay = document.getElementById('paymentOverlay');
+  const modal   = document.getElementById('paymentModal');
+  overlay.style.opacity      = '1';
+  overlay.style.pointerEvents = 'all';
+  modal.style.transform = 'translateY(0) scale(1)';
+  document.body.style.overflow = 'hidden';
+}
+
+function closePaymentModal() {
+  const overlay = document.getElementById('paymentOverlay');
+  const modal   = document.getElementById('paymentModal');
+  overlay.style.opacity      = '0';
+  overlay.style.pointerEvents = 'none';
+  modal.style.transform = 'translateY(20px) scale(0.97)';
+  document.body.style.overflow = '';
+}
+
+function goPayStep(step, silent) {
+  [1,2,3].forEach(s => {
+    document.getElementById('pay-panel-'+s).style.display = s===step?'block':'none';
+    const el = document.getElementById('pstep-'+s);
+    el.style.color        = s<=step ? 'var(--accent)' : 'var(--text-muted)';
+    el.style.borderBottom = s<=step ? '2px solid var(--accent)' : '2px solid transparent';
+  });
+  if (step===3 && !silent) runPaymentFlow();
+}
+
+function selectPayMethod(method) {
+  _payMethod = method;
+  ['upi','card','netbanking'].forEach(m => {
+    const el    = document.getElementById('pm-'+m);
+    const check = document.getElementById('pm-check-'+m);
+    if (m===method) {
+      el.style.border     = '1.5px solid var(--accent)';
+      el.style.background = 'var(--accent-pale)';
+      check.style.display = 'inline';
+    } else {
+      el.style.border     = '1.5px solid var(--border-strong)';
+      el.style.background = 'transparent';
+      check.style.display = 'none';
+    }
+  });
+}
+
+function runPaymentFlow() {
+  const proc = document.getElementById('pay-processing');
+  const succ = document.getElementById('pay-success');
+  const err  = document.getElementById('pay-error');
+  const txt  = document.getElementById('pay-status-text');
+  proc.style.display = 'block';
+  succ.style.display = 'none';
+  err.style.display  = 'none';
+
+  const bookedNums  = selectedSeats.map(s=>s.num);
+  const subtotal    = selectedSeats.reduce((s,x)=>s+x.price,0);
+  const total       = subtotal + Math.round(subtotal*0.05);
+
+  const steps = [
+    [800,  'Contacting payment gateway...'],
+    [1800, 'Verifying with bank...'],
+    [2800, 'Authorising transaction...'],
+    [3600, 'Confirming booking...'],
+  ];
+  steps.forEach(([delay, msg]) => setTimeout(() => { if(txt) txt.textContent=msg; }, delay));
+
+  setTimeout(() => {
+    fetch('/book_ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // ISSUE 1 FIX: send the actual departure and arrival times so the backend
+      // stores them in bookings.dep_time / bookings.arr_time.
+      // getTripStatus() on the My Bookings page then compares real clock times
+      // instead of always assuming 08:00–13:00, which caused instant "completed".
+      body: JSON.stringify({
+        busId:   currentBusId,
+        seats:   bookedNums,
+        price:   total,
+        depTime: currentDepTime,
+        arrTime: currentArrTime
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      proc.style.display = 'none';
+      if (data.status === 'success') {
+        document.getElementById('pay-confirm-desc').innerHTML =
+          bookedNums.length + ' seat' + (bookedNums.length>1?'s':'') +
+          ' confirmed &mdash; ₹' + total + ' paid via ' + _payMethod.toUpperCase();
+        succ.style.display = 'block';
+
+        // Lock seats in map
+        bookedNums.forEach(num => {
+          document.querySelectorAll('.seat-icon').forEach(icon => {
+            const n = icon.querySelector('.seat-num');
+            if (n && parseInt(n.textContent)===num) {
+              icon.classList.remove('selected');
+              icon.classList.add('booked');
+              icon.onclick = null;
+            }
+          });
+          if (!bookedSeats.includes(num)) bookedSeats.push(num);
+        });
+
+        const btn = document.getElementById('bookBtn');
+        btn.innerHTML = '<i class="fas fa-lock"></i> Proceed to Pay';
+        btn.disabled  = true;
+        closeSeatPanel();
+        selectedSeats = [];
+      } else {
+        err.style.display = 'block';
+      }
+    })
+    .catch(() => { proc.style.display='none'; err.style.display='block'; });
+  }, 4200);
+}
+
+// ══════════════════════════════════════════════
+// SCROLL COMPACT (skip when panels are open)
+// ══════════════════════════════════════════════
+window.addEventListener('scroll', () => {
+  if (document.getElementById('seatPanelOverlay').classList.contains('open')) return;
+  const scrolled = window.scrollY > 60;
+  const hero     = document.getElementById('searchHero');
+  if (hero && document.getElementById('filterSidebar').style.display !== 'none') {
+    scrolled ? hero.classList.add('compact') : hero.classList.remove('compact');
+  }
+}, { passive: true });
+</script>
+{% endblock %}

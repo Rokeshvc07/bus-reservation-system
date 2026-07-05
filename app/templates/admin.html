@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — SwiftSeat</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+</head>
+<body>
+<div class="admin-layout">
+
+  <!-- ══════════════════════════════════════════════
+       SIDEBAR
+  ══════════════════════════════════════════════ -->
+  <aside class="admin-sidebar">
+    <div class="admin-logo">
+      <div class="admin-logo-name">🚌 SwiftSeat</div>
+      <div class="admin-logo-badge">Admin Dashboard</div>
+    </div>
+
+    <a class="admin-nav-link active" onclick="showSection('overview')">
+      <i class="fas fa-chart-bar" style="width:16px;"></i> Overview
+    </a>
+    <a class="admin-nav-link" onclick="showSection('requests')" id="nav-requests">
+      <i class="fas fa-inbox" style="width:16px;"></i> Requests
+      {% if pending_count > 0 %}
+      <span id="pending-badge-nav"
+            style="margin-left:auto;background:#E74C3C;color:white;
+                   border-radius:999px;font-size:10px;font-weight:700;
+                   padding:2px 7px;min-width:18px;text-align:center;">
+        {{ pending_count }}
+      </span>
+      {% endif %}
+    </a>
+    <a class="admin-nav-link" onclick="showSection('buses')">
+      <i class="fas fa-bus" style="width:16px;"></i> Manage Buses
+    </a>
+    <a class="admin-nav-link" onclick="showSection('bookings')">
+      <i class="fas fa-ticket-alt" style="width:16px;"></i> Bookings
+    </a>
+    <a class="admin-nav-link" onclick="showSection('feedback')" id="nav-feedback">
+      <i class="fas fa-star" style="width:16px;"></i> Feedback
+      {% if new_feedback_count > 0 %}
+      <span id="fb-badge-nav"
+            style="margin-left:auto;background:#4F46E5;color:white;
+                   border-radius:999px;font-size:10px;font-weight:700;
+                   padding:2px 7px;min-width:18px;text-align:center;">
+        {{ new_feedback_count }}
+      </span>
+      {% endif %}
+    </a>
+    <a class="admin-nav-link" onclick="showSection('add')">
+      <i class="fas fa-plus" style="width:16px;"></i> Add Bus
+    </a>
+
+    <div style="position:absolute;bottom:24px;left:0;right:0;padding:0 16px;">
+      <a href="{{ url_for('logout') }}" class="admin-nav-link"
+         style="border-radius:var(--radius-sm);color:rgba(255,255,255,0.4);">
+        <i class="fas fa-sign-out-alt" style="width:16px;"></i> Logout
+      </a>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════════════════════════
+       MAIN CONTENT
+  ══════════════════════════════════════════════ -->
+  <main class="admin-content">
+
+    <!-- ── Overview Section ── -->
+    <div id="section-overview">
+      <div class="admin-content-header">
+        <div class="page-title" style="font-size:28px;">Good day, {{ user }} 👋</div>
+        <p style="color:var(--text-secondary);font-size:14px;margin-top:4px;">
+          Here's what's happening with SwiftSeat today.
+        </p>
+      </div>
+
+      <div class="admin-stat-grid">
+        <div class="admin-stat-card">
+          <div class="admin-stat-icon" style="background:var(--accent-pale);">🚌</div>
+          <div class="admin-stat-num">{{ buses|length }}</div>
+          <div class="admin-stat-label">Total Buses</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-icon" style="background:#EEF2FF;">🎫</div>
+          <div class="admin-stat-num">{{ bookings|length }}</div>
+          <div class="admin-stat-label">Total Bookings</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-icon" style="background:var(--success-pale);">💰</div>
+          <div class="admin-stat-num">₹{{ bookings|sum(attribute='total_price') }}</div>
+          <div class="admin-stat-label">Total Revenue</div>
+        </div>
+        <div class="admin-stat-card" style="cursor:pointer;" onclick="showSection('requests')">
+          <div class="admin-stat-icon" style="background:#FEF3F2;">📥</div>
+          <div class="admin-stat-num" id="overview-pending-count">{{ pending_count }}</div>
+          <div class="admin-stat-label">Pending Requests</div>
+          {% if pending_count > 0 %}
+          <div style="font-size:11px;color:var(--danger);font-weight:600;margin-top:4px;">
+            Needs attention →
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         REQUESTS SECTION — Core approval workflow
+    ══════════════════════════════════════════════ -->
+    <div id="section-requests" style="display:none;">
+      <div class="admin-content-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div class="page-title" style="font-size:28px;">Cancel &amp; Reschedule Requests</div>
+          <p style="color:var(--text-secondary);font-size:14px;margin-top:4px;">
+            Review user requests and approve or reject them.
+          </p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <!-- Filter Pills -->
+          <div style="display:flex;gap:6px;" id="req-filter-pills">
+            <button onclick="filterRequests('all')"
+                    id="pill-all"
+                    style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;
+                           border:1.5px solid var(--accent);background:var(--accent);color:white;
+                           cursor:pointer;transition:all 0.2s ease;">All</button>
+            <button onclick="filterRequests('pending')"
+                    id="pill-pending"
+                    style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;
+                           border:1.5px solid var(--border-strong);background:transparent;
+                           color:var(--text-secondary);cursor:pointer;transition:all 0.2s ease;">
+                    Pending</button>
+            <button onclick="filterRequests('approved')"
+                    id="pill-approved"
+                    style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;
+                           border:1.5px solid var(--border-strong);background:transparent;
+                           color:var(--text-secondary);cursor:pointer;transition:all 0.2s ease;">
+                    Approved</button>
+            <button onclick="filterRequests('rejected')"
+                    id="pill-rejected"
+                    style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;
+                           border:1.5px solid var(--border-strong);background:transparent;
+                           color:var(--text-secondary);cursor:pointer;transition:all 0.2s ease;">
+                    Rejected</button>
+          </div>
+          <button onclick="loadRequests()"
+                  style="padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;
+                         font-weight:600;border:1.5px solid var(--border-strong);
+                         background:var(--surface-2);color:var(--text-secondary);
+                         cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <i class="fas fa-sync-alt" id="refresh-icon"></i> Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Request Cards Container -->
+      <div id="requests-container">
+        <div style="text-align:center;padding:48px 0;color:var(--text-muted);">
+          <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block;"></i>
+          Loading requests...
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Buses Section ── -->
+    <div id="section-buses" style="display:none;">
+      <div class="admin-content-header">
+        <div class="page-title" style="font-size:28px;">Manage Buses</div>
+      </div>
+      <div class="data-table-card">
+        <div class="data-table-header">
+          <div class="data-table-title">All Buses ({{ buses|length }})</div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>ID</th><th>Bus Name</th><th>Route</th><th>Price</th><th>Seats</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {% for bus in buses %}
+            <tr>
+              <td style="color:var(--text-muted);">#{{ bus['id'] }}</td>
+              <td style="font-weight:600;">{{ bus['name'] }}</td>
+              <td>{{ bus['route'] }}</td>
+              <td style="color:var(--accent);font-weight:600;">₹{{ bus['price'] }}</td>
+              <td>{{ bus['seats'] }}</td>
+              <td>
+                <a href="{{ url_for('delete_bus', id=bus['id']) }}" class="btn-danger"
+                   onclick="return confirm('Delete this bus?')">
+                  <i class="fas fa-trash"></i> Delete
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Bookings Section ── -->
+    <div id="section-bookings" style="display:none;">
+      <div class="admin-content-header">
+        <div class="page-title" style="font-size:28px;">All Bookings</div>
+      </div>
+      <div class="data-table-card">
+        <div class="data-table-header">
+          <div class="data-table-title">All Bookings ({{ bookings|length }})</div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Ticket ID</th><th>User</th><th>Bus</th><th>Seats</th><th>Total</th></tr>
+          </thead>
+          <tbody>
+            {% for b in bookings %}
+            <tr>
+              <td style="color:var(--text-muted);">#{{ b['id'] }}</td>
+              <td>{{ b['username'] }}</td>
+              <td style="font-weight:600;">{{ b['name'] }}</td>
+              <td>{{ b['seat_numbers'] }}</td>
+              <td style="color:var(--accent);font-weight:600;">₹{{ b['total_price'] }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Add Bus Section ── -->
+    <div id="section-add" style="display:none;">
+      <div class="admin-content-header">
+        <div class="page-title" style="font-size:28px;">Add New Bus</div>
+      </div>
+      <div class="form-card" style="max-width:560px;">
+        <form action="{{ url_for('add_bus') }}" method="POST">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Bus Name</label>
+              <input type="text" name="name" class="form-input" placeholder="e.g. NueGo Electric AC" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Route</label>
+              <input type="text" name="route" class="form-input" placeholder="e.g. Coimbatore - Chennai" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Ticket Price (₹)</label>
+              <input type="number" name="price" class="form-input" placeholder="280" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Total Seats</label>
+              <input type="number" name="seats" class="form-input" value="40" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" style="width:auto;padding:0 32px;">
+            <i class="fas fa-plus"></i> Add Bus
+          </button>
+        </form>
+      </div>
+    </div>
+
+
+    <!-- ══ FEEDBACK SECTION ══ -->
+    <div id="section-feedback" style="display:none;">
+      <div class="admin-content-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div class="page-title" style="font-size:28px;">User Feedback</div>
+          <p style="color:var(--text-secondary);font-size:14px;margin-top:4px;">
+            Reviews from completed trips. Take action to resolve or report issues.
+          </p>
+        </div>
+        <div style="display:flex;gap:6px;" id="fb-filter-pills">
+          <button onclick="filterFeedback('all')"       id="fbpill-all"       class="fb-pill active-pill">All</button>
+          <button onclick="filterFeedback('submitted')" id="fbpill-submitted" class="fb-pill">New</button>
+          <button onclick="filterFeedback('reviewed')"  id="fbpill-reviewed"  class="fb-pill">Reviewed</button>
+          <button onclick="filterFeedback('resolved')"  id="fbpill-resolved"  class="fb-pill">Resolved</button>
+          <button onclick="filterFeedback('reported')"  id="fbpill-reported"  class="fb-pill">Reported</button>
+        </div>
+      </div>
+      <div id="feedback-container">
+        <div style="text-align:center;padding:48px;color:var(--text-muted);">
+          <i class="fas fa-spinner fa-spin" style="font-size:24px;display:block;margin-bottom:12px;"></i>Loading…
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     ADMIN NOTE MODAL — for approve/reject with optional note
+══════════════════════════════════════════════════════ -->
+<div id="decideModalOverlay"
+     style="position:fixed;inset:0;z-index:900;display:flex;align-items:center;
+            justify-content:center;background:rgba(26,26,24,0.5);
+            backdrop-filter:blur(6px);opacity:0;pointer-events:none;
+            transition:opacity 0.3s ease;">
+  <div id="decideModal"
+       style="background:var(--surface);border-radius:var(--radius-xl);
+              padding:32px;width:100%;max-width:440px;margin:20px;
+              box-shadow:0 32px 80px rgba(0,0,0,0.2);
+              transform:translateY(20px) scale(0.97);
+              transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);">
+
+    <div id="decideModalIcon"
+         style="width:52px;height:52px;border-radius:50%;display:flex;align-items:center;
+                justify-content:center;margin:0 auto 18px;font-size:22px;"></div>
+
+    <h3 id="decideModalTitle"
+        style="font-family:'DM Serif Display',serif;font-size:21px;text-align:center;
+               color:var(--text-primary);margin-bottom:6px;letter-spacing:-0.02em;"></h3>
+    <p id="decideModalSub"
+       style="font-size:13px;color:var(--text-secondary);text-align:center;
+              line-height:1.6;margin-bottom:18px;"></p>
+
+    <!-- Request summary card inside modal -->
+    <div id="decideModalSummary"
+         style="background:var(--surface-2);border-radius:var(--radius-md);
+                padding:14px 16px;margin-bottom:18px;font-size:13px;
+                border:1px solid var(--border);"></div>
+
+    <!-- Admin Note -->
+    <div style="margin-bottom:20px;">
+      <label style="font-size:12px;font-weight:600;color:var(--text-muted);
+                    text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;">
+        Note to user <span style="font-weight:400;opacity:.6;">(optional)</span>
+      </label>
+      <textarea id="adminNoteInput"
+                placeholder="Reason for decision, instructions, etc."
+                style="width:100%;padding:10px 12px;border:1.5px solid var(--border-strong);
+                       border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;
+                       font-size:13px;resize:none;height:72px;background:var(--surface);
+                       outline:none;box-sizing:border-box;transition:border 0.2s ease;"
+                onfocus="this.style.borderColor='var(--accent)'"
+                onblur="this.style.borderColor='var(--border-strong)'"></textarea>
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeDecideModal()"
+              style="flex:1;height:46px;background:var(--surface-2);color:var(--text-secondary);
+                     border:1.5px solid var(--border-strong);border-radius:var(--radius-md);
+                     font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;
+                     cursor:pointer;">
+        Cancel
+      </button>
+      <button id="decideConfirmBtn" onclick="confirmDecision()"
+              style="flex:1;height:46px;border:none;border-radius:var(--radius-md);
+                     font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;
+                     cursor:pointer;color:white;transition:all 0.2s ease;"></button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// SECTION NAVIGATION
+// ══════════════════════════════════════════════
+const SECTIONS = ['overview', 'requests', 'buses', 'bookings', 'feedback', 'add'];
+
+function showSection(name) {
+  SECTIONS.forEach(s => {
+    document.getElementById('section-' + s).style.display = s === name ? 'block' : 'none';
+  });
+  document.querySelectorAll('.admin-nav-link').forEach((link, i) => {
+    link.classList.toggle('active', SECTIONS[i] === name);
+  });
+  if (name === 'requests') loadRequests();
+  if (name === 'feedback') loadFeedback();
+}
+
+// ══════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════
+function showToast(msg, type = 'success') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} toast-icon"></i><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => { t.classList.add('removing'); setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+// ══════════════════════════════════════════════
+// REQUESTS — State
+// ══════════════════════════════════════════════
+let _allRequests   = [];
+let _activeFilter  = 'all';
+let _pendingReqId  = null;
+let _pendingDecision = null;
+
+// ══════════════════════════════════════════════
+// LOAD REQUESTS from API
+// ══════════════════════════════════════════════
+function loadRequests() {
+  const icon = document.getElementById('refresh-icon');
+  if (icon) icon.classList.add('fa-spin');
+
+  fetch('/admin/requests/all')
+    .then(r => r.json())
+    .then(data => {
+      _allRequests = data;
+      renderRequests();
+
+      // Update pending badge in sidebar
+      const pending = data.filter(r => r.status === 'pending').length;
+      const navBadge = document.getElementById('pending-badge-nav');
+      const overviewCount = document.getElementById('overview-pending-count');
+
+      if (navBadge) {
+        navBadge.textContent = pending > 0 ? pending : '';
+        navBadge.style.display = pending > 0 ? 'inline-block' : 'none';
+      }
+      if (overviewCount) overviewCount.textContent = pending;
+    })
+    .catch(() => {
+      document.getElementById('requests-container').innerHTML =
+        '<div style="text-align:center;padding:48px;color:var(--danger);">' +
+        '<i class="fas fa-exclamation-circle" style="font-size:24px;margin-bottom:12px;display:block;"></i>' +
+        'Failed to load requests. <button onclick="loadRequests()" style="color:var(--accent);background:none;border:none;cursor:pointer;font-weight:600;">Retry</button></div>';
+    })
+    .finally(() => { if (icon) icon.classList.remove('fa-spin'); });
+}
+
+// ══════════════════════════════════════════════
+// FILTER PILLS
+// ══════════════════════════════════════════════
+function filterRequests(status) {
+  _activeFilter = status;
+  document.querySelectorAll('#req-filter-pills button').forEach(btn => {
+    const isActive = btn.id === 'pill-' + status;
+    btn.style.background = isActive ? 'var(--accent)' : 'transparent';
+    btn.style.color      = isActive ? 'white' : 'var(--text-secondary)';
+    btn.style.borderColor = isActive ? 'var(--accent)' : 'var(--border-strong)';
+  });
+  renderRequests();
+}
+
+// ══════════════════════════════════════════════
+// RENDER REQUEST CARDS
+// ══════════════════════════════════════════════
+function renderRequests() {
+  const container = document.getElementById('requests-container');
+  const filtered  = _activeFilter === 'all'
+    ? _allRequests
+    : _allRequests.filter(r => r.status === _activeFilter);
+
+  if (filtered.length === 0) {
+    const msgs = {
+      all:      { icon: '📥', title: 'No requests yet', sub: 'User cancel/reschedule requests will appear here.' },
+      pending:  { icon: '⏳', title: 'No pending requests', sub: 'All caught up! No requests awaiting your review.' },
+      approved: { icon: '✅', title: 'No approved requests', sub: 'Approved requests will be shown here.' },
+      rejected: { icon: '❌', title: 'No rejected requests', sub: 'Rejected requests will be shown here.' }
+    };
+    const m = msgs[_activeFilter];
+    container.innerHTML =
+      `<div style="text-align:center;padding:64px 0;">
+         <div style="font-size:48px;margin-bottom:16px;">${m.icon}</div>
+         <div style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:8px;">${m.title}</div>
+         <div style="font-size:14px;color:var(--text-muted);">${m.sub}</div>
+       </div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(req => buildRequestCard(req)).join('');
+}
+
+// ── Build a single request card HTML ──
+function buildRequestCard(req) {
+  const isCancel    = req.request_type === 'cancel';
+  const typeIcon    = isCancel ? 'fa-times-circle' : 'fa-calendar-alt';
+  const typeLabel   = isCancel ? 'Cancellation' : 'Reschedule';
+  const typeColor   = isCancel ? 'var(--danger)' : 'var(--accent)';
+  const typeBg      = isCancel ? 'var(--danger-pale)' : 'var(--accent-pale)';
+
+  const statusConfig = {
+    pending:  { icon: 'fa-hourglass-half', color: '#D4A017', bg: '#FEF9EC',   label: 'Pending Review' },
+    approved: { icon: 'fa-check-double',   color: 'var(--success)', bg: 'var(--success-pale)', label: 'Approved' },
+    rejected: { icon: 'fa-ban',            color: 'var(--danger)',  bg: 'var(--danger-pale)',   label: 'Rejected' }
+  };
+  const sc = statusConfig[req.status] || statusConfig.pending;
+
+  const seatsStr = req.seat_numbers
+    ? (typeof req.seat_numbers === 'string'
+         ? JSON.parse(req.seat_numbers).join(', ')
+         : req.seat_numbers)
+    : '—';
+
+  const approveBtn = req.status === 'pending'
+    ? `<button onclick="openDecideModal(${req.id}, 'approved', '${esc(req.bus_name)}', '${req.request_type}')"
+               style="padding:9px 18px;background:var(--success);color:white;border:none;
+                      border-radius:var(--radius-md);font-family:'DM Sans',sans-serif;
+                      font-size:13px;font-weight:600;cursor:pointer;
+                      display:inline-flex;align-items:center;gap:7px;
+                      transition:all 0.2s ease;"
+               onmouseenter="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(39,174,96,0.35)'"
+               onmouseleave="this.style.transform='';this.style.boxShadow=''">
+         <i class="fas fa-check"></i> Approve
+       </button>
+       <button onclick="openDecideModal(${req.id}, 'rejected', '${esc(req.bus_name)}', '${req.request_type}')"
+               style="padding:9px 18px;background:var(--danger);color:white;border:none;
+                      border-radius:var(--radius-md);font-family:'DM Sans',sans-serif;
+                      font-size:13px;font-weight:600;cursor:pointer;
+                      display:inline-flex;align-items:center;gap:7px;
+                      transition:all 0.2s ease;"
+               onmouseenter="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 14px rgba(192,57,43,0.35)'"
+               onmouseleave="this.style.transform='';this.style.boxShadow=''">
+         <i class="fas fa-times"></i> Reject
+       </button>` : '';
+
+  const adminNoteHtml = req.admin_note
+    ? `<div style="margin-top:10px;padding:9px 12px;background:var(--surface-3);
+                   border-radius:var(--radius-sm);font-size:12px;color:var(--text-secondary);">
+         <i class="fas fa-comment-dots" style="margin-right:5px;opacity:0.6;"></i>
+         <strong>Admin note:</strong> ${req.admin_note}
+       </div>` : '';
+
+  const reschedRow = (req.request_type === 'reschedule' && req.rescheduled_date)
+    ? `<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+         <span style="font-size:11px;font-weight:600;color:var(--text-muted);
+                      text-transform:uppercase;letter-spacing:.05em;">Requested New Date:</span>
+         <span style="font-size:13px;font-weight:700;color:var(--accent);">
+           ${req.rescheduled_date}
+         </span>
+       </div>` : '';
+
+  return `
+  <div class="data-table-card" id="req-card-${req.id}"
+       style="margin-bottom:16px;padding:0;overflow:hidden;animation:fadeSlideUp 0.35s ease;">
+    <!-- Card Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:16px 20px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:38px;height:38px;border-radius:var(--radius-sm);
+                    background:${typeBg};display:flex;align-items:center;justify-content:center;
+                    font-size:16px;color:${typeColor};flex-shrink:0;">
+          <i class="fas ${typeIcon}"></i>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary);">
+            ${typeLabel} Request <span style="color:var(--text-muted);font-weight:400;">· #${req.id}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+            From <strong>${req.username || '—'}</strong> &middot; ${req.created_at || ''}
+          </div>
+        </div>
+      </div>
+      <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 13px;
+                   background:${sc.bg};color:${sc.color};
+                   border-radius:var(--radius-full);font-size:12px;font-weight:700;
+                   border:1px solid ${sc.color}22;">
+        <i class="fas ${sc.icon}"></i> ${sc.label}
+      </span>
+    </div>
+
+    <!-- Card Body -->
+    <div style="padding:16px 20px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;
+                  margin-bottom:14px;">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);
+                      text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Bus</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text-primary);">
+            ${req.bus_name || '—'}
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
+            ${req.bus_route || '—'}
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);
+                      text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Booking</div>
+          <div style="font-size:13px;color:var(--text-secondary);">
+            Booking #${req.booking_id} &middot; Seats: ${seatsStr}
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+            ₹${req.total_price || '—'} total
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);
+                      text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Current Date</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text-primary);">
+            ${req.original_date || '—'}
+          </div>
+          ${reschedRow}
+        </div>
+      </div>
+
+      ${adminNoteHtml}
+
+      ${approveBtn ? `<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">${approveBtn}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function esc(str) {
+  return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// ══════════════════════════════════════════════
+// DECIDE MODAL
+// ══════════════════════════════════════════════
+function openDecideModal(reqId, decision, busName, requestType) {
+  _pendingReqId    = reqId;
+  _pendingDecision = decision;
+
+  const isApprove  = decision === 'approved';
+  const isCancel   = requestType === 'cancel';
+
+  const icon    = document.getElementById('decideModalIcon');
+  const title   = document.getElementById('decideModalTitle');
+  const sub     = document.getElementById('decideModalSub');
+  const summary = document.getElementById('decideModalSummary');
+  const btn     = document.getElementById('decideConfirmBtn');
+
+  icon.style.background = isApprove ? 'var(--success-pale)' : 'var(--danger-pale)';
+  icon.style.color      = isApprove ? 'var(--success)'      : 'var(--danger)';
+  icon.innerHTML = `<i class="fas ${isApprove ? 'fa-check-double' : 'fa-ban'}"></i>`;
+
+  title.textContent = isApprove ? 'Approve this request?' : 'Reject this request?';
+  sub.textContent   = isApprove
+    ? (isCancel
+        ? 'This will permanently cancel the booking and initiate a refund.'
+        : 'This will update the booking to the requested new date.')
+    : 'The booking will remain unchanged. User will be notified.';
+
+  summary.innerHTML =
+    `<div style="font-size:12px;color:var(--text-muted);font-weight:600;
+                  text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">
+       Request Summary
+     </div>
+     <div style="font-size:13px;color:var(--text-secondary);">
+       <strong style="color:var(--text-primary);">Request #${reqId}</strong>
+       &mdash; ${isCancel ? 'Cancel' : 'Reschedule'} for <strong>${busName || 'this bus'}</strong>
+     </div>`;
+
+  document.getElementById('adminNoteInput').value = '';
+
+  btn.textContent     = isApprove ? 'Yes, Approve' : 'Yes, Reject';
+  btn.style.background = isApprove ? 'var(--success)' : 'var(--danger)';
+
+  const overlay = document.getElementById('decideModalOverlay');
+  const modal   = document.getElementById('decideModal');
+  overlay.style.opacity       = '1';
+  overlay.style.pointerEvents = 'all';
+  modal.style.transform       = 'translateY(0) scale(1)';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDecideModal() {
+  const overlay = document.getElementById('decideModalOverlay');
+  const modal   = document.getElementById('decideModal');
+  overlay.style.opacity       = '0';
+  overlay.style.pointerEvents = 'none';
+  modal.style.transform       = 'translateY(20px) scale(0.97)';
+  document.body.style.overflow = '';
+  _pendingReqId    = null;
+  _pendingDecision = null;
+}
+
+document.getElementById('decideModalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeDecideModal();
+});
+
+// ══════════════════════════════════════════════
+// CONFIRM DECISION — POST to API
+// ══════════════════════════════════════════════
+function confirmDecision() {
+  if (!_pendingReqId || !_pendingDecision) return;
+
+  // BUG 1 FIX: Capture BOTH values as local constants BEFORE the async fetch.
+  // closeDecideModal() (called inside .then()) sets _pendingReqId and
+  // _pendingDecision to null. Any code in .then() that reads the module-level
+  // variables after closeDecideModal() will see null — so every ternary
+  // (_pendingDecision === 'approved') evaluates to false, making every toast
+  // show "Request rejected." even when the admin just approved.
+  // Capturing them as local consts here creates a closure over the correct values.
+  const reqId    = _pendingReqId;
+  const decision = _pendingDecision;
+
+  const btn  = document.getElementById('decideConfirmBtn');
+  const note = document.getElementById('adminNoteInput').value.trim();
+
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing…';
+  btn.disabled  = true;
+
+  fetch('/admin/request/' + reqId + '/decide', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ decision: decision, admin_note: note })
+  })
+  .then(r => r.json())
+  .then(data => {
+    closeDecideModal(); // safe to call now — we use local vars below, not module vars
+
+    if (data.status === 'success') {
+      // Animate the decided card out, then reload the list
+      const card = document.getElementById('req-card-' + reqId);
+      if (card) {
+        card.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+        card.style.opacity    = '0';
+        card.style.transform  = 'translateX(20px)';
+        setTimeout(() => loadRequests(), 400);
+      } else {
+        loadRequests();
+      }
+
+      // Use local `decision` (captured before closeDecideModal cleared the global)
+      const isApproved = decision === 'approved';
+      const label = isApproved ? '✅ Request approved!' : '❌ Request rejected.';
+      showToast(label, isApproved ? 'success' : 'error');
+    } else {
+      showToast(data.message || 'Action failed. Please retry.', 'error');
+    }
+
+    // Reset button text using local `decision`
+    btn.innerHTML = decision === 'approved' ? 'Yes, Approve' : 'Yes, Reject';
+    btn.disabled  = false;
+  })
+  .catch(() => {
+    closeDecideModal();
+    showToast('Network error. Please try again.', 'error');
+    btn.innerHTML = decision === 'approved' ? 'Yes, Approve' : 'Yes, Reject';
+    btn.disabled  = false;
+  });
+}
+
+// ══════════════════════════════════════════════
+// ISSUE 3: ADMIN FEEDBACK PANEL
+// ══════════════════════════════════════════════
+let _allFeedback = [];
+let _fbFilter    = 'all';
+
+function loadFeedback() {
+  const container = document.getElementById('feedback-container');
+  if (!container) return;
+  fetch('/admin/feedback/all')
+    .then(r => r.json())
+    .then(function(data) {
+      _allFeedback = Array.isArray(data) ? data : [];
+      renderFeedback();
+    })
+    .catch(function() {
+      container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--danger);"><i class="fas fa-exclamation-circle" style="font-size:24px;display:block;margin-bottom:8px;"></i>Failed to load feedback.</div>';
+    });
+}
+
+function filterFeedback(status) {
+  _fbFilter = status;
+  document.querySelectorAll('.fb-pill').forEach(function(b) {
+    const a = b.id === 'fbpill-' + status;
+    b.style.background  = a ? 'var(--accent)' : 'transparent';
+    b.style.color       = a ? 'white' : 'var(--text-secondary)';
+    b.style.borderColor = a ? 'var(--accent)' : 'var(--border-strong)';
+  });
+  renderFeedback();
+}
+
+function renderFeedback() {
+  const container = document.getElementById('feedback-container');
+  if (!container) return;
+  const list = _fbFilter === 'all' ? _allFeedback : _allFeedback.filter(function(f) { return f.status === _fbFilter; });
+  if (!list.length) {
+    container.innerHTML = '<div style="text-align:center;padding:64px;"><div style="font-size:40px;margin-bottom:12px;">&#11088;</div><div style="font-size:16px;font-weight:700;color:var(--text-primary);">No feedback here yet</div></div>';
+    return;
+  }
+  function stars(r) { let s=''; for(let i=1;i<=5;i++) s+='<span style="color:'+(i<=r?'#F4B942':'var(--border-strong)')+'">&#9733;</span>'; return s; }
+  const sb = { submitted:{bg:'#EEF2FF',color:'#4F46E5',label:'New'}, reviewed:{bg:'var(--accent-pale)',color:'var(--accent)',label:'Reviewed'}, resolved:{bg:'var(--success-pale)',color:'var(--success)',label:'Resolved'}, reported:{bg:'var(--warning-pale)',color:'var(--warning)',label:'Reported'} };
+  container.innerHTML = list.map(function(fb) {
+    const s = sb[fb.status] || sb.submitted;
+    // ISSUE 3 FIX: use data-* attributes on buttons instead of inline onclick
+  // with string arguments — the old approach broke because unescaped single
+  // quotes inside onclick="..." attribute cause the browser's HTML parser to
+  // terminate the attribute value early, making the JS never execute.
+  const actionBtns = (fb.status === 'submitted' || fb.status === 'reviewed')
+    ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">' +
+        '<button class="fb-action-btn" data-id="' + fb.id + '" data-action="reviewed"' +
+          ' style="padding:7px 14px;background:var(--accent-pale);color:var(--accent);' +
+          'border:1px solid var(--accent-pale-2);border-radius:var(--radius-sm);' +
+          'font-family:DM Sans,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">' +
+          '<i class="fas fa-eye"></i> Mark Reviewed</button>' +
+        '<button class="fb-action-btn" data-id="' + fb.id + '" data-action="reported"' +
+          ' style="padding:7px 14px;background:var(--warning-pale);color:var(--warning);' +
+          'border:1px solid rgba(230,126,34,0.2);border-radius:var(--radius-sm);' +
+          'font-family:DM Sans,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">' +
+          '<i class="fas fa-flag"></i> Report to Operator</button>' +
+        '<button class="fb-action-btn" data-id="' + fb.id + '" data-action="resolved"' +
+          ' style="padding:7px 14px;background:var(--success-pale);color:var(--success);' +
+          'border:1px solid rgba(39,174,96,0.2);border-radius:var(--radius-sm);' +
+          'font-family:DM Sans,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">' +
+          '<i class="fas fa-check"></i> Resolve</button>' +
+      '</div>' : '';
+    return '<div class="data-table-card" id="fb-card-' + fb.id + '" style="margin-bottom:14px;padding:0;overflow:hidden;">' +
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;">' +
+        '<div><div style="font-size:14px;font-weight:700;color:var(--text-primary);">Feedback #' + fb.id + ' <span style="font-weight:400;color:var(--text-muted);">from ' + (fb.username||'—') + '</span></div>' +
+        '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">' + (fb.bus_name||'—') + ' &middot; ' + (fb.bus_route||'—') + ' &middot; ' + (fb.created_at||'') + '</div></div>' +
+        '<span style="display:inline-flex;align-items:center;padding:4px 12px;background:' + s.bg + ';color:' + s.color + ';border-radius:var(--radius-full);font-size:12px;font-weight:600;">' + s.label + '</span>' +
+      '</div>' +
+      '<div style="padding:14px 20px;">' +
+        '<div style="margin-bottom:8px;">' + stars(fb.rating||0) + ' <span style="font-size:12px;color:var(--text-muted);margin-left:6px;">' + (fb.rating||0) + '/5</span></div>' +
+        '<div style="font-size:14px;color:var(--text-primary);">' + (fb.message || '<em style="color:var(--text-muted);">No message</em>') + '</div>' +
+        (fb.admin_note ? '<div style="margin-top:10px;padding:8px 12px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:12px;color:var(--text-secondary);"><i class="fas fa-comment-dots" style="margin-right:5px;opacity:.6;"></i><strong>Note:</strong> ' + fb.admin_note + '</div>' : '') +
+        actionBtns +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ISSUE 3 FIX: event delegation on the container — no onclick strings needed
+document.getElementById('feedback-container').addEventListener('click', function(e) {
+  var btn = e.target.closest('.fb-action-btn');
+  if (!btn) return;
+  var fbId   = btn.dataset.id;
+  var action = btn.dataset.action;
+  adminFeedbackAction(parseInt(fbId), action);
+});
+
+function adminFeedbackAction(fbId, status) {
+  var note = '';
+  if (status === 'reported') {
+    note = prompt('Add a note for the operator (optional):') || '';
+  }
+  var originalHTML = null;
+  var card = document.getElementById('fb-card-' + fbId);
+  // Animate card to show it's being processed
+  if (card) { card.style.opacity = '0.6'; card.style.pointerEvents = 'none'; }
+
+  fetch('/admin/feedback/' + fbId + '/action', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ status: status, note: note })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (card) { card.style.opacity = '1'; card.style.pointerEvents = ''; }
+    if (data.status === 'success') {
+      var lbl = { reviewed: 'Marked as reviewed', resolved: 'Issue resolved ✓',
+                  reported: 'Reported to operator ⚑' };
+      showToast(lbl[status] || 'Done', 'success');
+      // Update the sidebar badge count
+      var fbBadge = document.getElementById('fb-badge-nav');
+      if (fbBadge && status !== 'reviewed') {
+        var n = parseInt(fbBadge.textContent || '0') - 1;
+        fbBadge.textContent  = n > 0 ? n : '';
+        fbBadge.style.display = n > 0 ? 'inline-block' : 'none';
+      }
+      loadFeedback(); // reload the full list
+    } else {
+      showToast(data.message || 'Action failed', 'error');
+    }
+  })
+  .catch(function() {
+    if (card) { card.style.opacity = '1'; card.style.pointerEvents = ''; }
+    showToast('Network error', 'error');
+  });
+}
+
+</script>
+</body>
+</html>
